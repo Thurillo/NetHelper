@@ -95,6 +95,15 @@ const DeviceDetailPage: React.FC = () => {
                 <p className="text-xs text-gray-500">Ultimo scan</p>
                 <p className="text-sm">{device.last_scan_at ? format(new Date(device.last_scan_at), 'dd/MM HH:mm', { locale: it }) : '—'}</p>
               </div>
+              {device.mac_address && (
+                <div>
+                  <p className="text-xs text-gray-500">MAC Address</p>
+                  <p className="text-sm font-mono" title={`Cisco: ${device.mac_address_cisco ?? '—'}`}>{device.mac_address}</p>
+                  {device.mac_address_cisco && (
+                    <p className="text-xs text-gray-400 font-mono">{device.mac_address_cisco}</p>
+                  )}
+                </div>
+              )}
               {device.serial_number && (
                 <div>
                   <p className="text-xs text-gray-500">Numero seriale</p>
