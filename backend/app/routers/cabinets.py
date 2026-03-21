@@ -27,9 +27,23 @@ async def list_cabinets(
     kwargs = {}
     if site_id is not None:
         kwargs["site_id"] = site_id
-    cabinets = await crud_cabinet.get_multi(db, skip=(page-1)*size, limit=size, **kwargs)
+    cabinets = await crud_cabinet.get_multi(db, skip=(page - 1) * size, limit=size, **kwargs)
     _total = await crud_cabinet.count(db)
-    return PaginatedResponse.build([CabinetRead.model_validate(c) for c in cabinets], total=_total, page=page, size=size)
+
+    # Single aggregate query for devices_count / used_u / devices_summary
+    cabinet_ids = [c.id for c in cabinets]
+    stats = await crud_cabinet.get_cabinet_stats(db, cabinet_ids)
+
+    result: list[CabinetRead] = []
+    for c in cabinets:
+        item = CabinetRead.model_validate(c)
+        s = stats.get(c.id, {})
+        item.devices_count = s.get("devices_count", 0)
+        item.used_u = s.get("used_u", 0)
+        item.devices_summary = s.get("devices_summary") or None
+        result.append(item)
+
+    return PaginatedResponse.build(result, total=_total, page=page, size=size)
 
 
 @router.post("/", response_model=CabinetRead, status_code=status.HTTP_201_CREATED)

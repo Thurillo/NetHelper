@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,10 +29,9 @@ class CRUDCabinet(CRUDBase[Cabinet, CabinetCreate, CabinetUpdate]):
         return result.scalar_one_or_none()
 
     async def get_multi(self, db: AsyncSession, skip: int = 0, limit: int = 100, **filters) -> list[Cabinet]:
-        """List cabinets with site and devices eagerly loaded."""
+        """List cabinets with site eagerly loaded."""
         stmt = select(Cabinet).options(
             selectinload(Cabinet.site),
-            selectinload(Cabinet.devices),
         )
         for field, value in filters.items():
             if value is not None and hasattr(Cabinet, field):
@@ -40,6 +39,44 @@ class CRUDCabinet(CRUDBase[Cabinet, CabinetCreate, CabinetUpdate]):
         stmt = stmt.offset(skip).limit(limit)
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_cabinet_stats(
+        self, db: AsyncSession, cabinet_ids: list[int]
+    ) -> dict[int, dict]:
+        """Return per-cabinet stats: devices_count, used_u, devices_summary.
+
+        Single query grouped by (cabinet_id, device_type).
+        Returns a dict keyed by cabinet_id.
+        """
+        if not cabinet_ids:
+            return {}
+
+        rows = await db.execute(
+            select(
+                Device.cabinet_id,
+                Device.device_type,
+                func.count(Device.id).label("cnt"),
+                func.sum(
+                    case((Device.u_position.isnot(None), Device.u_height), else_=0)
+                ).label("used_u"),
+            )
+            .where(Device.cabinet_id.in_(cabinet_ids))
+            .group_by(Device.cabinet_id, Device.device_type)
+        )
+
+        stats: dict[int, dict] = {}
+        for row in rows:
+            cid = row.cabinet_id
+            dtype = row.device_type.value if hasattr(row.device_type, "value") else str(row.device_type)
+            cnt = int(row.cnt)
+            used = int(row.used_u or 0)
+            if cid not in stats:
+                stats[cid] = {"devices_count": 0, "used_u": 0, "devices_summary": {}}
+            stats[cid]["devices_count"] += cnt
+            stats[cid]["used_u"] += used
+            stats[cid]["devices_summary"][dtype] = stats[cid]["devices_summary"].get(dtype, 0) + cnt
+
+        return stats
 
     async def get_devices_in_cabinet(
         self, db: AsyncSession, cabinet_id: int
