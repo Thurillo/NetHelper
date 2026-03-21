@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import { Play } from 'lucide-react'
+import { Play, Plus, X } from 'lucide-react'
 import { useStartIpRangeScan } from '../../hooks/useScanJobs'
 
-const COMMON_PORTS = [22, 80, 443, 8080, 8443, 3389, 5900]
+const COMMON_PORTS = [22, 80, 443, 8080]
 
 interface IpRangeScanFormProps {
   onScanStarted?: (jobId: number) => void
@@ -12,6 +12,9 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
   const [ipStart, setIpStart] = useState('')
   const [ipEnd, setIpEnd] = useState('')
   const [selectedPorts, setSelectedPorts] = useState<Set<number>>(new Set([22, 80, 443]))
+  const [customPortInput, setCustomPortInput] = useState('')
+  const [portRangeFrom, setPortRangeFrom] = useState('')
+  const [portRangeTo, setPortRangeTo] = useState('')
   const [timeout, setTimeout] = useState(500)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -23,6 +26,40 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
       const next = new Set(prev)
       if (next.has(port)) next.delete(port)
       else next.add(port)
+      return next
+    })
+  }
+
+  const addCustomPort = () => {
+    const p = parseInt(customPortInput)
+    if (!isNaN(p) && p >= 1 && p <= 65535) {
+      setSelectedPorts((prev) => new Set([...prev, p]))
+      setCustomPortInput('')
+    }
+  }
+
+  const addPortRange = () => {
+    const from = parseInt(portRangeFrom)
+    const to = parseInt(portRangeTo)
+    if (!isNaN(from) && !isNaN(to) && from >= 1 && to <= 65535 && from <= to) {
+      if (to - from > 999) {
+        setError('Range porte troppo grande (max 1000 porte)')
+        return
+      }
+      setSelectedPorts((prev) => {
+        const next = new Set(prev)
+        for (let p = from; p <= to; p++) next.add(p)
+        return next
+      })
+      setPortRangeFrom('')
+      setPortRangeTo('')
+    }
+  }
+
+  const removePort = (port: number) => {
+    setSelectedPorts((prev) => {
+      const next = new Set(prev)
+      next.delete(port)
       return next
     })
   }
@@ -42,6 +79,7 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
   }
 
   const ipCount = estimateIpCount()
+  const sortedPorts = Array.from(selectedPorts).sort((a, b) => a - b)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,11 +97,15 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
       setError('Intervallo troppo grande (max 65536 indirizzi)')
       return
     }
+    if (selectedPorts.size === 0) {
+      setError('Seleziona almeno una porta')
+      return
+    }
     try {
       const job = await startScan.mutateAsync({
         start_ip: ipStart,
         end_ip: ipEnd,
-        ports: Array.from(selectedPorts),
+        ports: sortedPorts,
         timeout_ms: timeout,
       })
       setSuccess(true)
@@ -109,9 +151,11 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
         </p>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Porte da controllare</label>
-        <div className="flex flex-wrap gap-2">
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700">Porte da controllare</label>
+
+        {/* Preset checkboxes */}
+        <div className="flex flex-wrap gap-3">
           {COMMON_PORTS.map((port) => (
             <label key={port} className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -124,6 +168,72 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
             </label>
           ))}
         </div>
+
+        {/* Custom single ports */}
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={65535}
+            value={customPortInput}
+            onChange={(e) => setCustomPortInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomPort() } }}
+            placeholder="Porta personalizzata"
+            className="w-44 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
+          />
+          <button
+            type="button"
+            onClick={addCustomPort}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            <Plus size={14} /> Aggiungi
+          </button>
+        </div>
+
+        {/* Port range */}
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={65535}
+            value={portRangeFrom}
+            onChange={(e) => setPortRangeFrom(e.target.value)}
+            placeholder="Da porta"
+            className="w-28 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
+          />
+          <span className="text-gray-400 text-sm">—</span>
+          <input
+            type="number"
+            min={1}
+            max={65535}
+            value={portRangeTo}
+            onChange={(e) => setPortRangeTo(e.target.value)}
+            placeholder="A porta"
+            className="w-28 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
+          />
+          <button
+            type="button"
+            onClick={addPortRange}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            <Plus size={14} /> Aggiungi range
+          </button>
+        </div>
+
+        {/* Selected ports tags */}
+        {sortedPorts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 rounded-lg border border-gray-200">
+            {sortedPorts.map((port) => (
+              <span key={port} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-gray-300 rounded text-xs font-mono text-gray-700">
+                {port}
+                <button type="button" onClick={() => removePort(port)} className="text-gray-400 hover:text-red-500">
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+            <span className="text-xs text-gray-400 self-center ml-1">{sortedPorts.length} porte</span>
+          </div>
+        )}
       </div>
 
       <div>
