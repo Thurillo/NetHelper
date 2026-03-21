@@ -1,12 +1,55 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import socket
+import subprocess
 import sys
 from datetime import datetime, timezone
 from ipaddress import ip_address as parse_ip, summarize_address_range
 
 from app.tasks.celery_app import celery_app
+
+# Lazy-loaded vendor lookup (loaded once per worker process)
+_mac_lookup = None
+
+def _get_mac_lookup():
+    global _mac_lookup
+    if _mac_lookup is None:
+        try:
+            from mac_vendor_lookup import MacLookup
+            _mac_lookup = MacLookup()
+        except Exception:
+            _mac_lookup = False
+    return _mac_lookup if _mac_lookup is not False else None
+
+
+def _arp_mac(ip: str) -> str | None:
+    """Read MAC address from kernel ARP table for a given IP."""
+    try:
+        result = subprocess.run(
+            ["ip", "neigh", "show", ip],
+            capture_output=True, text=True, timeout=2
+        )
+        # Output: "192.168.1.1 dev eth0 lladdr 2c:91:ab:ff:35:96 STALE"
+        m = re.search(r'lladdr\s+([0-9a-fA-F:]{17})', result.stdout)
+        if m:
+            return m.group(1).lower()
+    except Exception:
+        pass
+    return None
+
+
+def _vendor_from_mac(mac: str) -> str | None:
+    """Look up vendor name from MAC OUI."""
+    lookup = _get_mac_lookup()
+    if lookup is None:
+        return None
+    try:
+        from mac_vendor_lookup import VendorNotFoundError
+        return lookup.lookup(mac)
+    except Exception:
+        return None
 
 
 def _get_event_loop() -> asyncio.AbstractEventLoop:
@@ -218,7 +261,6 @@ def run_ip_range_scan(self, scan_job_id: int) -> dict:
 
             async def scan_one(ip: str) -> dict | None:
                 """Returns host info if alive, else None."""
-                # Run ping and all TCP checks in parallel
                 tcp_tasks = [_tcp_check(ip, p, timeout=1.5) for p in ports]
                 ping_task = _ping(ip)
                 results = await asyncio.gather(ping_task, *tcp_tasks, return_exceptions=True)
@@ -228,10 +270,22 @@ def run_ip_range_scan(self, scan_job_id: int) -> dict:
                 open_ports = [p for p, ok in zip(ports, tcp_results) if ok is True]
 
                 if not ping_alive and not open_ports:
-                    return None  # host not reachable
+                    return None
 
+                # After TCP connect, kernel ARP table should have the MAC
+                loop = asyncio.get_event_loop()
+                mac = await loop.run_in_executor(None, _arp_mac, ip)
+                vendor = await loop.run_in_executor(None, _vendor_from_mac, mac) if mac else None
                 hostname = await _reverse_dns(ip)
-                return {"ip": ip, "open_ports": open_ports, "hostname": hostname, "ping": ping_alive}
+
+                return {
+                    "ip": ip,
+                    "open_ports": open_ports,
+                    "hostname": hostname,
+                    "ping": ping_alive,
+                    "mac": mac,
+                    "vendor": vendor,
+                }
 
             for i in range(0, len(ip_list), batch_size):
                 batch = ip_list[i:i + batch_size]
@@ -241,10 +295,12 @@ def run_ip_range_scan(self, scan_job_id: int) -> dict:
                         found_hosts.append(result)
                         ports_str = ", ".join(str(p) for p in result["open_ports"]) or "—"
                         hn = result["hostname"] or ""
+                        mac_str = f"  MAC: {result['mac']}" if result.get("mac") else ""
+                        vendor_str = f" ({result['vendor']})" if result.get("vendor") else ""
                         ping_str = " [ping ok]" if result["ping"] else ""
                         await crud_scan_job.append_log(
                             db, scan_job_id,
-                            f"✓ {result['ip']}{('  ' + hn) if hn else ''}  porte aperte: {ports_str}{ping_str}"
+                            f"✓ {result['ip']}{('  ' + hn) if hn else ''}{mac_str}{vendor_str}  porte: {ports_str}{ping_str}"
                         )
 
             if not found_hosts:
