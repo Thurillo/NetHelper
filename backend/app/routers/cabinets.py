@@ -17,11 +17,11 @@ router = APIRouter(prefix="/cabinets", tags=["cabinets"])
 
 @router.get("/", response_model=list[CabinetRead])
 async def list_cabinets(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = 0,
     limit: int = 100,
     site_id: int | None = None,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[CabinetRead]:
     kwargs = {}
     if site_id is not None:

@@ -19,6 +19,8 @@ router = APIRouter(prefix="/audit-log", tags=["audit-log"])
 
 @router.get("/", response_model=list[AuditLogRead])
 async def list_audit_logs(
+    current_user: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Optional[int] = None,
     entity_table: Optional[str] = None,
     entity_id: Optional[int] = None,
@@ -26,8 +28,6 @@ async def list_audit_logs(
     to_dt: Optional[datetime] = None,
     skip: int = 0,
     limit: int = 100,
-    current_user: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[AuditLogRead]:
     logs = await get_audit_logs(
         db,

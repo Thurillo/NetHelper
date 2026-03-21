@@ -16,10 +16,10 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/", response_model=list[UserRead])
 async def list_users(
+    _: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = 0,
     limit: int = 100,
-    _: Annotated[object, Depends(require_admin)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[UserRead]:
     users = await crud_user.get_multi(db, skip=skip, limit=limit)
     return [UserRead.model_validate(u) for u in users]

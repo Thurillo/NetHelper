@@ -18,13 +18,13 @@ router = APIRouter(prefix="/scan-jobs", tags=["scan-jobs"])
 
 @router.get("/", response_model=list[ScanJobRead])
 async def list_scan_jobs(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     device_id: Optional[int] = None,
     status_filter: Optional[str] = None,
     scan_type: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[ScanJobRead]:
     jobs = await crud_scan_job.get_multi_filtered(
         db,

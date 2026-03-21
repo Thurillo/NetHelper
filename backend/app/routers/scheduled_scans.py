@@ -45,10 +45,10 @@ class ScheduledScanRead(BaseModel):
 
 @router.get("/", response_model=list[ScheduledScanRead])
 async def list_scheduled_scans(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     device_id: Optional[int] = None,
     enabled: Optional[bool] = None,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[ScheduledScanRead]:
     stmt = select(ScheduledScan)
     if device_id is not None:

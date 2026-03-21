@@ -25,6 +25,8 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 
 @router.get("/", response_model=list[DeviceRead])
 async def list_devices(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = 0,
     limit: int = 100,
     site_id: Optional[int] = None,
@@ -32,8 +34,6 @@ async def list_devices(
     device_type: Optional[str] = None,
     status_filter: Optional[str] = None,
     q: Optional[str] = None,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[DeviceRead]:
     devices = await crud_device.search(
         db,
@@ -153,10 +153,10 @@ async def get_device_mac_entries(
 @router.get("/{device_id}/scan-jobs", response_model=list[ScanJobRead])
 async def get_device_scan_jobs(
     device_id: int,
-    skip: int = 0,
-    limit: int = 20,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    skip: int = 0,
+    limit: int = 20,
 ) -> list[ScanJobRead]:
     device = await crud_device.get(db, device_id)
     if device is None:

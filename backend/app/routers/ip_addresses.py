@@ -16,13 +16,13 @@ router = APIRouter(prefix="/ip-addresses", tags=["ip-addresses"])
 
 @router.get("/", response_model=list[IpAddressRead])
 async def list_ip_addresses(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     device_id: Optional[int] = None,
     interface_id: Optional[int] = None,
     prefix_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 200,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[IpAddressRead]:
     if device_id is not None:
         ips = await crud_ip_address.get_by_device(db, device_id)

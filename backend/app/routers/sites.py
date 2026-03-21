@@ -18,10 +18,10 @@ router = APIRouter(prefix="/sites", tags=["sites"])
 
 @router.get("/", response_model=list[SiteRead])
 async def list_sites(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = 0,
     limit: int = 100,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[SiteRead]:
     return await crud_site.get_multi_with_counts(db, skip=skip, limit=limit)
 
@@ -92,10 +92,10 @@ async def delete_site(
 @router.get("/{site_id}/cabinets", response_model=list[CabinetRead])
 async def list_site_cabinets(
     site_id: int,
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = 0,
     limit: int = 100,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[CabinetRead]:
     site = await crud_site.get(db, site_id)
     if site is None:

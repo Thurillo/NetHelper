@@ -31,10 +31,10 @@ def _to_read(vendor) -> VendorRead:
 
 @router.get("/", response_model=list[VendorRead])
 async def list_vendors(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = 0,
     limit: int = 100,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[VendorRead]:
     vendors = await crud_vendor.get_multi(db, skip=skip, limit=limit)
     return [_to_read(v) for v in vendors]

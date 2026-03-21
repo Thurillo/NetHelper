@@ -18,11 +18,11 @@ router = APIRouter(prefix="/topology", tags=["topology"])
 
 @router.get("/", response_model=TopologyGraph)
 async def get_topology(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     site_id: Optional[int] = None,
     device_type: Optional[str] = None,
     max_nodes: int = 200,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> TopologyGraph:
     # Build device query
     stmt = select(Device)

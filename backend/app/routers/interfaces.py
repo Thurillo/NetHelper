@@ -20,11 +20,11 @@ router = APIRouter(prefix="/interfaces", tags=["interfaces"])
 
 @router.get("/", response_model=list[InterfaceRead])
 async def list_interfaces(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     device_id: int | None = None,
     skip: int = 0,
     limit: int = 200,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[InterfaceRead]:
     if device_id is not None:
         interfaces = await crud_interface.get_by_device(db, device_id)

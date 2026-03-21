@@ -23,11 +23,11 @@ router = APIRouter(prefix="/prefixes", tags=["prefixes"])
 
 @router.get("/", response_model=list[IpPrefixRead])
 async def list_prefixes(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     site_id: int | None = None,
     skip: int = 0,
     limit: int = 200,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[IpPrefixRead]:
     kwargs = {}
     if site_id is not None:
@@ -120,9 +120,9 @@ async def get_prefix_utilization(
 @router.get("/{prefix_id}/available-ips", response_model=list[str])
 async def get_available_ips(
     prefix_id: int,
-    limit: int = 50,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = 50,
 ) -> list[str]:
     prefix = await crud_ip_prefix.get(db, prefix_id)
     if prefix is None:
@@ -133,10 +133,10 @@ async def get_available_ips(
 @router.get("/{prefix_id}/ip-addresses", response_model=list[IpAddressRead])
 async def get_prefix_ip_addresses(
     prefix_id: int,
-    skip: int = 0,
-    limit: int = 200,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    skip: int = 0,
+    limit: int = 200,
 ) -> list[IpAddressRead]:
     prefix = await crud_ip_prefix.get(db, prefix_id)
     if prefix is None:

@@ -29,11 +29,11 @@ async def search_mac(
 
 @router.get("/", response_model=list[MacEntryRead])
 async def list_mac_entries(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     device_id: int | None = None,
     skip: int = 0,
     limit: int = 200,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[MacEntryRead]:
     kwargs = {}
     if device_id is not None:
@@ -107,10 +107,10 @@ async def delete_mac_entry(
 
 @router.delete("/purge", status_code=status.HTTP_200_OK)
 async def purge_old_mac_entries(
+    current_user: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     body: dict = Body(..., example={"days": 90}),
     request: Request = None,
-    current_user: Annotated[object, Depends(require_admin)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> dict:
     days = body.get("days")
     if not isinstance(days, int) or days < 1:

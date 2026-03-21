@@ -72,10 +72,10 @@ async def _enrich_cable(db: AsyncSession, cable: Cable) -> CableRead:
 
 @router.get("/", response_model=list[CableRead])
 async def list_cables(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = 0,
     limit: int = 100,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[CableRead]:
     cables = await crud_cable.get_multi(db, skip=skip, limit=limit)
     return [await _enrich_cable(db, c) for c in cables]

@@ -104,9 +104,9 @@ async def get_me(
 
 @router.post("/logout")
 async def logout(
-    current_user: Annotated[object, Depends(get_current_user)],
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     client_ip = getattr(request.state, "client_ip", None) or (
         request.client.host if request.client else None

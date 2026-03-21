@@ -19,11 +19,11 @@ router = APIRouter(prefix="/vlans", tags=["vlans"])
 
 @router.get("/", response_model=list[VlanRead])
 async def list_vlans(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     site_id: int | None = None,
     skip: int = 0,
     limit: int = 200,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[VlanRead]:
     kwargs = {}
     if site_id is not None:

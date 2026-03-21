@@ -20,13 +20,13 @@ router = APIRouter(prefix="/conflicts", tags=["conflicts"])
 
 @router.get("/", response_model=list[ScanConflictRead])
 async def list_conflicts(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     status_filter: Optional[str] = None,
     device_id: Optional[int] = None,
     conflict_type: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
-    _: Annotated[object, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> list[ScanConflictRead]:
     conflicts = await crud_scan_conflict.get_multi_filtered(
         db,
