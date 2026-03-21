@@ -1,18 +1,140 @@
 import React, { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Server } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cabinetsApi } from '../api/cabinets'
 import { sitesApi } from '../api/sites'
 import { useAuthStore } from '../store/authStore'
-import Table, { Column } from '../components/common/Table'
 import Modal from '../components/common/Modal'
 import Pagination from '../components/common/Pagination'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import type { Cabinet, CabinetCreate } from '../types'
 
-const CabinetsPage: React.FC = () => {
+// Device type labels in Italian
+const DEVICE_TYPE_LABELS: Record<string, string> = {
+  switch: 'Switch',
+  router: 'Router',
+  ap: 'AP',
+  server: 'Server',
+  patch_panel: 'Patch Panel',
+  firewall: 'Firewall',
+  ups: 'UPS',
+  workstation: 'Workstation',
+  printer: 'Stampante',
+  camera: 'Telecamera',
+  phone: 'Telefono',
+  other: 'Altro',
+}
+
+// Color for each device type chip
+const DEVICE_TYPE_COLORS: Record<string, string> = {
+  switch: 'bg-blue-100 text-blue-700',
+  router: 'bg-green-100 text-green-700',
+  ap: 'bg-purple-100 text-purple-700',
+  server: 'bg-orange-100 text-orange-700',
+  patch_panel: 'bg-gray-100 text-gray-600',
+  firewall: 'bg-red-100 text-red-700',
+  ups: 'bg-yellow-100 text-yellow-700',
+  workstation: 'bg-teal-100 text-teal-700',
+  printer: 'bg-pink-100 text-pink-700',
+  camera: 'bg-indigo-100 text-indigo-700',
+  phone: 'bg-teal-100 text-teal-600',
+  other: 'bg-gray-100 text-gray-500',
+}
+
+interface CabinetCardProps {
+  cabinet: Cabinet
+  onEdit: (c: Cabinet) => void
+  isAdmin: boolean
+}
+
+const CabinetCard: React.FC<CabinetCardProps> = ({ cabinet, onEdit, isAdmin }) => {
   const navigate = useNavigate()
+  const usedU = cabinet.used_u ?? 0
+  const totalU = cabinet.u_count
+  const fillPct = totalU > 0 ? Math.round((usedU / totalU) * 100) : 0
+  const deviceCount = cabinet.devices_count ?? 0
+  const summary = cabinet.devices_summary ?? {}
+
+  const barColor =
+    fillPct >= 85 ? 'bg-red-500' :
+    fillPct >= 60 ? 'bg-orange-400' :
+    fillPct > 0   ? 'bg-primary-500' :
+    'bg-gray-200'
+
+  // Sort device types: switches first, patch panels last, rest in between
+  const ORDER = ['switch', 'router', 'firewall', 'ap', 'server', 'workstation', 'ups', 'printer', 'camera', 'phone', 'other', 'patch_panel']
+  const sortedTypes = Object.entries(summary).sort(
+    ([a], [b]) => (ORDER.indexOf(a) ?? 99) - (ORDER.indexOf(b) ?? 99)
+  )
+
+  return (
+    <div
+      onClick={() => navigate(`/armadi/${cabinet.id}`)}
+      className="bg-white rounded-xl border border-gray-200 p-5 hover:border-primary-300 hover:shadow-sm transition-all cursor-pointer group"
+    >
+      {/* Top row: name + edit */}
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary-700 transition-colors">
+            {cabinet.name}
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">{cabinet.site?.name ?? '—'}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isAdmin && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(cabinet) }}
+              className="text-xs text-gray-400 hover:text-primary-600 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              Modifica
+            </button>
+          )}
+          <span className="text-xs text-gray-400 font-mono">{totalU}U</span>
+        </div>
+      </div>
+
+      {/* Fill bar */}
+      <div className="mt-3 mb-2">
+        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+          <span className="flex items-center gap-1">
+            <Server size={11} />
+            {deviceCount} {deviceCount === 1 ? 'dispositivo' : 'dispositivi'}
+          </span>
+          <span className={fillPct > 0 ? 'font-medium' : ''}>
+            {usedU}U / {totalU}U
+            {fillPct > 0 && <span className={`ml-1 ${fillPct >= 85 ? 'text-red-500' : fillPct >= 60 ? 'text-orange-500' : 'text-gray-400'}`}>({fillPct}%)</span>}
+          </span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${barColor}`}
+            style={{ width: `${Math.min(fillPct, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Device type chips */}
+      {sortedTypes.length > 0 ? (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {sortedTypes.map(([type, count]) => (
+            <span
+              key={type}
+              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium ${DEVICE_TYPE_COLORS[type] ?? 'bg-gray-100 text-gray-500'}`}
+            >
+              {count > 1 && <span className="font-bold">{count}×</span>}
+              {DEVICE_TYPE_LABELS[type] ?? type}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400 mt-2">Armadio vuoto</p>
+      )}
+    </div>
+  )
+}
+
+const CabinetsPage: React.FC = () => {
   const [searchParams] = useSearchParams()
   const siteIdParam = searchParams.get('site_id') ? Number(searchParams.get('site_id')) : undefined
   const { isAdmin } = useAuthStore()
@@ -70,29 +192,16 @@ const CabinetsPage: React.FC = () => {
     else createCabinet.mutate(form)
   }
 
-  const columns: Column<Cabinet>[] = [
-    { key: 'name', header: 'Nome', sortable: true, render: (c) => <span className="font-medium text-gray-900">{c.name}</span> },
-    { key: 'site', header: 'Sede', render: (c) => <span className="text-gray-600">{c.site?.name ?? '—'}</span> },
-    { key: 'u_count', header: 'Dimensione', render: (c) => <span>{c.u_count}U</span> },
-    { key: 'devices_count', header: 'Dispositivi', render: (c) => <span className="font-medium">{c.devices_count ?? 0}</span> },
-    { key: 'description', header: 'Note', render: (c) => <span className="text-gray-500">{c.description ?? '—'}</span> },
-  ]
-
-  if (isAdmin()) {
-    columns.push({
-      key: 'actions', header: '',
-      render: (c) => (
-        <button onClick={(e) => { e.stopPropagation(); openEdit(c) }} className="text-xs text-primary-600 hover:underline">Modifica</button>
-      ),
-    })
-  }
+  const cabinets = data?.items ?? []
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Armadi</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestisci gli armadi rack</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {data ? `${data.total} armad${data.total === 1 ? 'io' : 'i'}` : 'Gestisci gli armadi rack'}
+          </p>
         </div>
         {isAdmin() && (
           <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">
@@ -101,9 +210,26 @@ const CabinetsPage: React.FC = () => {
         )}
       </div>
 
-      {isLoading ? <LoadingSpinner centered /> : (
+      {isLoading ? (
+        <LoadingSpinner centered />
+      ) : cabinets.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">
+          <Server size={40} className="mx-auto mb-3 text-gray-300" />
+          <p className="font-medium">Nessun armadio trovato</p>
+          <p className="text-sm mt-1">Crea il primo armadio rack.</p>
+        </div>
+      ) : (
         <>
-          <Table columns={columns} data={data?.items ?? []} keyExtractor={(c) => c.id} onRowClick={(c) => navigate(`/armadi/${c.id}`)} emptyTitle="Nessun armadio" emptyDescription="Crea il primo armadio rack." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {cabinets.map((cabinet) => (
+              <CabinetCard
+                key={cabinet.id}
+                cabinet={cabinet}
+                onEdit={openEdit}
+                isAdmin={isAdmin()}
+              />
+            ))}
+          </div>
           {data && <Pagination page={page} pages={data.pages} total={data.total} size={data.size} onPageChange={setPage} />}
         </>
       )}

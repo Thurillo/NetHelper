@@ -29,8 +29,11 @@ class CRUDCabinet(CRUDBase[Cabinet, CabinetCreate, CabinetUpdate]):
         return result.scalar_one_or_none()
 
     async def get_multi(self, db: AsyncSession, skip: int = 0, limit: int = 100, **filters) -> list[Cabinet]:
-        """List cabinets with site eagerly loaded."""
-        stmt = select(Cabinet).options(selectinload(Cabinet.site))
+        """List cabinets with site and devices eagerly loaded."""
+        stmt = select(Cabinet).options(
+            selectinload(Cabinet.site),
+            selectinload(Cabinet.devices),
+        )
         for field, value in filters.items():
             if value is not None and hasattr(Cabinet, field):
                 stmt = stmt.where(getattr(Cabinet, field) == value)

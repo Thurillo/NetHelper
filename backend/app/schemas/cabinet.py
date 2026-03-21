@@ -39,8 +39,29 @@ class CabinetRead(BaseModel):
     position: Optional[str] = None
     site: Optional[_SiteMinimal] = None
     devices_count: Optional[int] = None
+    used_u: Optional[int] = None
+    devices_summary: Optional[dict[str, int]] = None  # {"switch": 2, "patch_panel": 3, …}
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, **kwargs):
+        instance = super().model_validate(obj, **kwargs)
+        try:
+            devices = getattr(obj, "devices", None)
+            if devices is not None:
+                instance.devices_count = len(devices)
+                instance.used_u = sum(
+                    (d.u_height or 1) for d in devices if d.u_position is not None
+                )
+                summary: dict[str, int] = {}
+                for d in devices:
+                    dtype = d.device_type.value if hasattr(d.device_type, "value") else str(d.device_type)
+                    summary[dtype] = summary.get(dtype, 0) + 1
+                instance.devices_summary = summary if summary else None
+        except Exception:
+            pass
+        return instance
 
 
 class RackDiagramDevice(BaseModel):

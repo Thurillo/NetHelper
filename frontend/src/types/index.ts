@@ -94,6 +94,8 @@ export interface Cabinet {
   u_count: number
   description: string | null
   devices_count?: number
+  used_u?: number
+  devices_summary?: Record<string, number>
 }
 
 export interface CabinetCreate {
