@@ -61,8 +61,8 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
     }
     try {
       const job = await startScan.mutateAsync({
-        ip_start: ipStart,
-        ip_end: ipEnd,
+        start_ip: ipStart,
+        end_ip: ipEnd,
         ports: Array.from(selectedPorts),
         timeout_ms: timeout,
       })

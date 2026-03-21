@@ -416,8 +416,8 @@ export interface ScanJob {
 }
 
 export interface IpRangeScanRequest {
-  ip_start: string
-  ip_end: string
+  start_ip: string
+  end_ip: string
   ports?: number[]
   timeout_ms?: number
 }
