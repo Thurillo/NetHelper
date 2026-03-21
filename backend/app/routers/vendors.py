@@ -20,7 +20,7 @@ def _to_read(vendor) -> VendorRead:
         name=vendor.name,
         slug=vendor.slug,
         snmp_default_community=vendor.snmp_default_community,
-        snmp_version=vendor.snmp_version,
+        snmp_default_version=vendor.snmp_default_version,
         ssh_default_username=vendor.ssh_default_username,
         has_password=vendor.ssh_default_password_enc is not None,
         ssh_default_port=vendor.ssh_default_port,
