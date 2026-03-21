@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   footer?: React.ReactNode
+  closeOnBackdrop?: boolean
 }
 
 const sizeMap = {
@@ -19,7 +20,7 @@ const sizeMap = {
   '2xl': 'max-w-2xl',
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer, closeOnBackdrop = true }) => {
   const overlayRef = useRef<HTMLDivElement>(null)
   const firstFocusableRef = useRef<HTMLButtonElement>(null)
   // Keep onClose in a ref so the effect doesn't re-run when the parent re-renders
@@ -46,7 +47,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
   if (!isOpen) return null
 
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) onClose()
+    if (closeOnBackdrop && e.target === overlayRef.current) onClose()
   }
 
   return (

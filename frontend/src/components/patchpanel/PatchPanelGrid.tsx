@@ -5,11 +5,12 @@ import type { PatchPortDetail } from '../../types'
 
 interface PatchPanelGridProps {
   deviceId: number
+  cabinetId?: number | null
   ports: PatchPortDetail[]
   onRefresh: () => void
 }
 
-const PatchPanelGrid: React.FC<PatchPanelGridProps> = ({ deviceId, ports, onRefresh }) => {
+const PatchPanelGrid: React.FC<PatchPanelGridProps> = ({ deviceId, cabinetId = null, ports, onRefresh }) => {
   const [editingPort, setEditingPort] = useState<PatchPortDetail | null>(null)
 
   const portCount = ports.length || 24
@@ -63,6 +64,7 @@ const PatchPanelGrid: React.FC<PatchPanelGridProps> = ({ deviceId, ports, onRefr
         onClose={() => setEditingPort(null)}
         port={editingPort}
         deviceId={deviceId}
+        cabinetId={cabinetId}
         onSaved={onRefresh}
       />
     </div>

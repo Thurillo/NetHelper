@@ -52,8 +52,9 @@ const PortDot: React.FC<{
 
 const PatchPanelExpanded: React.FC<{
   deviceId: number
+  cabinetId: number | null
   cabinetName: string | null
-}> = ({ deviceId, cabinetName }) => {
+}> = ({ deviceId, cabinetId, cabinetName }) => {
   const [selectedPortId, setSelectedPortId] = useState<number | null>(null)
   const [editingPort, setEditingPort] = useState<PatchPortDetail | null>(null)
 
@@ -200,6 +201,7 @@ const PatchPanelExpanded: React.FC<{
         onClose={() => setEditingPort(null)}
         port={editingPort}
         deviceId={deviceId}
+        cabinetId={cabinetId}
         onSaved={() => { refetch(); setEditingPort(null) }}
       />
     </div>
@@ -211,6 +213,7 @@ const PatchPanelExpanded: React.FC<{
 const PatchPanelCard: React.FC<{ pp: Device }> = ({ pp }) => {
   const [expanded, setExpanded] = useState(false)
   const cabinetName = pp.cabinet_name ?? null
+  const cabinetId = pp.cabinet_id ?? null
 
   return (
     <div className={`bg-white rounded-xl border transition-all ${
@@ -243,7 +246,7 @@ const PatchPanelCard: React.FC<{ pp: Device }> = ({ pp }) => {
       {/* Expanded content */}
       {expanded && (
         <div className="px-5 pb-5">
-          <PatchPanelExpanded deviceId={pp.id} cabinetName={cabinetName} />
+          <PatchPanelExpanded deviceId={pp.id} cabinetId={cabinetId} cabinetName={cabinetName} />
         </div>
       )}
     </div>
