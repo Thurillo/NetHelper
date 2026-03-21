@@ -2,10 +2,14 @@ import React, { useEffect, useRef, useState } from 'react'
 import { XCircle, Wifi, WifiOff, PlusCircle, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useScanJobPolling, useCancelScan } from '../../hooks/useScanJobs'
-import { useCreateDevice } from '../../hooks/useDevices'
+import { useCreateDevice, useDevices } from '../../hooks/useDevices'
 import { vendorsApi } from '../../api/vendors'
+import { devicesApi } from '../../api/devices'
+import { interfacesApi } from '../../api/interfaces'
+import { cablesApi } from '../../api/cables'
+import { patchPanelsApi } from '../../api/patchPanels'
 import StatusDot from '../common/StatusDot'
-import type { ScanJob } from '../../types'
+import type { ScanJob, NetworkInterface, PatchPortDetail } from '../../types'
 
 interface FoundHost {
   ip: string
@@ -15,6 +19,8 @@ interface FoundHost {
   mac: string | null
   vendor: string | null
 }
+
+type ConnectionType = 'none' | 'switch' | 'patch_panel'
 
 interface AddDeviceModalProps {
   host: FoundHost
@@ -31,120 +37,290 @@ const AddDeviceModal: React.FC<AddDeviceModalProps> = ({ host, vendors, onClose,
   const [model, setModel] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Connection section
+  const [connectionType, setConnectionType] = useState<ConnectionType>('none')
+  const [selectedSwitchId, setSelectedSwitchId] = useState<number | ''>('')
+  const [switchInterfaces, setSwitchInterfaces] = useState<NetworkInterface[]>([])
+  const [selectedSwitchPortId, setSelectedSwitchPortId] = useState<number | ''>('')
+  const [selectedPPId, setSelectedPPId] = useState<number | ''>('')
+  const [ppPorts, setPPPorts] = useState<PatchPortDetail[]>([])
+  const [selectedPPPortId, setSelectedPPPortId] = useState<number | ''>('')
+
+  const { data: switchesData } = useDevices({ device_type: 'switch', size: 100 })
+  const { data: ppData } = useDevices({ device_type: 'patch_panel', size: 100 })
+
+  // Load switch interfaces when switch selected
+  useEffect(() => {
+    if (selectedSwitchId) {
+      devicesApi.getInterfaces(selectedSwitchId as number)
+        .then(setSwitchInterfaces)
+        .catch(() => setSwitchInterfaces([]))
+      setSelectedSwitchPortId('')
+    } else {
+      setSwitchInterfaces([])
+    }
+  }, [selectedSwitchId])
+
+  // Load patch panel ports when PP selected
+  useEffect(() => {
+    if (selectedPPId) {
+      patchPanelsApi.getPorts(selectedPPId as number)
+        .then(setPPPorts)
+        .catch(() => setPPPorts([]))
+      setSelectedPPPortId('')
+    } else {
+      setPPPorts([])
+    }
+  }, [selectedPPId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setIsSaving(true)
     try {
-      await createDevice.mutateAsync({
+      // 1. Create the device
+      const device = await createDevice.mutateAsync({
         name,
         device_type: deviceType as any,
         primary_ip: host.ip,
         management_ip: host.ip,
+        mac_address: host.mac || null,
         vendor_id: vendorId !== '' ? Number(vendorId) : null,
         model: model || null,
-        notes: [
-          notes,
-          host.mac ? `MAC: ${host.mac}` : '',
-          host.vendor ? `Vendor MAC: ${host.vendor}` : '',
-        ].filter(Boolean).join('\n') || null,
+        notes: notes || null,
       })
+
+      // 2. If a connection is requested, create a default interface then the link
+      if (connectionType !== 'none' && (selectedSwitchPortId || selectedPPPortId)) {
+        const newIface = await interfacesApi.create({
+          device_id: device.id,
+          name: 'eth0',
+          interface_type: 'ethernet',
+          mac_address: host.mac || null,
+        })
+
+        if (connectionType === 'switch' && selectedSwitchPortId) {
+          const a = Math.min(newIface.id, Number(selectedSwitchPortId))
+          const b = Math.max(newIface.id, Number(selectedSwitchPortId))
+          await cablesApi.create({ interface_a_id: a, interface_b_id: b, cable_type: 'copper' })
+        }
+
+        if (connectionType === 'patch_panel' && selectedPPPortId && selectedPPId) {
+          await patchPanelsApi.linkPort(Number(selectedPPId), Number(selectedPPPortId), newIface.id)
+        }
+      }
+
       onSuccess()
       onClose()
-    } catch {
-      setError('Errore durante la creazione del dispositivo')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Errore durante la creazione del dispositivo'
+      setError(msg)
+    } finally {
+      setIsSaving(false)
     }
   }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
           <h3 className="font-semibold text-gray-900">Aggiungi dispositivo — {host.ip}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
+        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
+          <div className="p-5 space-y-4 overflow-y-auto">
+            {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
 
-          {/* Pre-filled info */}
-          <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1 text-gray-600 font-mono">
-            <div><span className="text-gray-400">IP:</span> {host.ip}</div>
-            {host.mac && <div><span className="text-gray-400">MAC:</span> {host.mac}</div>}
-            {host.vendor && <div><span className="text-gray-400">Vendor:</span> {host.vendor}</div>}
-            {host.open_ports.length > 0 && (
-              <div><span className="text-gray-400">Porte:</span> {host.open_ports.join(', ')}</div>
-            )}
+            {/* Pre-filled discovery info */}
+            <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1 text-gray-600 font-mono">
+              <div><span className="text-gray-400">IP:</span> {host.ip}</div>
+              {host.mac && <div><span className="text-gray-400">MAC:</span> {host.mac}</div>}
+              {host.vendor && <div><span className="text-gray-400">Vendor MAC:</span> {host.vendor}</div>}
+              {host.open_ports.length > 0 && (
+                <div><span className="text-gray-400">Porte aperte:</span> {host.open_ports.join(', ')}</div>
+              )}
+            </div>
+
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+              <input
+                required
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            {/* Type + Vendor in a grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
+                <select
+                  value={deviceType}
+                  onChange={e => setDeviceType(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="server">Server</option>
+                  <option value="switch">Switch</option>
+                  <option value="router">Router</option>
+                  <option value="firewall">Firewall</option>
+                  <option value="ap">Access Point</option>
+                  <option value="printer">Stampante</option>
+                  <option value="workstation">Workstation</option>
+                  <option value="phone">Telefono</option>
+                  <option value="camera">Telecamera</option>
+                  <option value="other">Altro</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vendor
+                  {host.vendor && <span className="ml-1 text-xs font-normal text-gray-400">(da MAC: {host.vendor})</span>}
+                </label>
+                <select
+                  value={vendorId}
+                  onChange={e => setVendorId(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">— Nessuno —</option>
+                  {vendors.map(v => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Model */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Modello</label>
+              <input
+                value={model}
+                onChange={e => setModel(e.target.value)}
+                placeholder="es. PowerEdge R730"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            {/* ── Connection section ── */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Connessione (opzionale)</p>
+              </div>
+              <div className="p-3 space-y-3">
+                {/* Radio buttons */}
+                <div className="flex gap-4 text-sm">
+                  {(['none', 'switch', 'patch_panel'] as ConnectionType[]).map(ct => (
+                    <label key={ct} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="connectionType"
+                        value={ct}
+                        checked={connectionType === ct}
+                        onChange={() => { setConnectionType(ct); setSelectedSwitchId(''); setSelectedPPId('') }}
+                        className="text-primary-600"
+                      />
+                      <span className="text-gray-700">
+                        {ct === 'none' ? 'Nessuna' : ct === 'switch' ? 'Porta switch' : 'Porta patch panel'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Switch connection */}
+                {connectionType === 'switch' && (
+                  <div className="space-y-2">
+                    <select
+                      value={selectedSwitchId}
+                      onChange={e => setSelectedSwitchId(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">— Seleziona switch —</option>
+                      {switchesData?.items.map(sw => (
+                        <option key={sw.id} value={sw.id}>{sw.name}</option>
+                      ))}
+                    </select>
+                    {switchInterfaces.length > 0 && (
+                      <select
+                        value={selectedSwitchPortId}
+                        onChange={e => setSelectedSwitchPortId(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="">— Seleziona porta —</option>
+                        {switchInterfaces.map(iface => (
+                          <option key={iface.id} value={iface.id}>
+                            {iface.name}{iface.label ? ` — ${iface.label}` : ''}{iface.room_destination ? ` (${iface.room_destination})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <p className="text-xs text-gray-400">Verrà creata un'interfaccia eth0 sul dispositivo e un cavo verso la porta selezionata.</p>
+                  </div>
+                )}
+
+                {/* Patch panel connection */}
+                {connectionType === 'patch_panel' && (
+                  <div className="space-y-2">
+                    <select
+                      value={selectedPPId}
+                      onChange={e => setSelectedPPId(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">— Seleziona patch panel —</option>
+                      {ppData?.items.map(pp => (
+                        <option key={pp.id} value={pp.id}>{pp.name}</option>
+                      ))}
+                    </select>
+                    {ppPorts.length > 0 && (
+                      <select
+                        value={selectedPPPortId}
+                        onChange={e => setSelectedPPPortId(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="">— Seleziona porta —</option>
+                        {ppPorts
+                          .filter(p => p.linked_interface === null)
+                          .map(p => {
+                            const m = p.interface.name.match(/(\d+)$/)
+                            const num = m ? m[1] : p.interface.name
+                            const label = p.interface.label ? ` — ${p.interface.label}` : ''
+                            const room = p.interface.room_destination ? ` (${p.interface.room_destination})` : ''
+                            return (
+                              <option key={p.interface.id} value={p.interface.id}>
+                                Porta {num}{label}{room}
+                              </option>
+                            )
+                          })}
+                      </select>
+                    )}
+                    {ppPorts.length > 0 && ppPorts.filter(p => p.linked_interface === null).length === 0 && (
+                      <p className="text-xs text-orange-500">Tutte le porte di questo patch panel sono già occupate.</p>
+                    )}
+                    <p className="text-xs text-gray-400">Verrà creata un'interfaccia eth0 sul dispositivo e collegata alla porta selezionata.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={2}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-            <input
-              required
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo dispositivo *</label>
-            <select
-              value={deviceType}
-              onChange={e => setDeviceType(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="server">Server</option>
-              <option value="switch">Switch</option>
-              <option value="router">Router</option>
-              <option value="firewall">Firewall</option>
-              <option value="access_point">Access Point</option>
-              <option value="printer">Stampante</option>
-              <option value="workstation">Workstation</option>
-              <option value="other">Altro</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
-            <select
-              value={vendorId}
-              onChange={e => setVendorId(e.target.value === '' ? '' : Number(e.target.value))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">— Nessuno —</option>
-              {vendors.map(v => (
-                <option key={v.id} value={v.id}>{v.name}</option>
-              ))}
-            </select>
-            {host.vendor && (
-              <p className="text-xs text-gray-400 mt-1">
-                Suggerito dal MAC: <strong>{host.vendor}</strong>
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Modello</label>
-            <input
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              placeholder="es. PowerEdge R730"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-1">
+          {/* Footer */}
+          <div className="flex gap-3 px-5 py-4 border-t border-gray-200 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -154,10 +330,10 @@ const AddDeviceModal: React.FC<AddDeviceModalProps> = ({ host, vendors, onClose,
             </button>
             <button
               type="submit"
-              disabled={createDevice.isPending}
+              disabled={isSaving}
               className="flex-1 px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 font-medium"
             >
-              {createDevice.isPending ? 'Creazione...' : 'Crea dispositivo'}
+              {isSaving ? 'Creazione...' : 'Crea dispositivo'}
             </button>
           </div>
         </form>
