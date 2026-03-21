@@ -48,17 +48,11 @@ export const useLogout = () => {
 
 export const useCurrentUser = () => {
   const accessToken = useAuthStore((s) => s.accessToken)
-  const setAuth = useAuthStore((s) => s.setAuth)
 
   return useQuery({
     queryKey: ['auth', 'me'],
     queryFn: authApi.me,
     enabled: !!accessToken,
-    onSuccess: (user) => {
-      const at = localStorage.getItem('access_token') ?? ''
-      const rt = localStorage.getItem('refresh_token') ?? ''
-      setAuth(user, at, rt)
-    },
     staleTime: 5 * 60 * 1000,
   })
 }

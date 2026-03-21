@@ -1,9 +1,9 @@
 import React from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, MapPin, Server, Network, GitBranch, Grid3X3,
   Layers, Globe, Scan, Clock, AlertTriangle, History, Users,
-  Building2, LogOut, ChevronLeft, ChevronRight, Wifi, Settings
+  Building2, LogOut, ChevronLeft, ChevronRight, Wifi
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'

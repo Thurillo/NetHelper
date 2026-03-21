@@ -27,9 +27,9 @@ interface TopologyGraphProps {
 }
 
 const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, isLoading, onNodeClick }) => {
-  const fgRef = useRef<{ zoomIn: () => void; zoomOut: () => void; zoomToFit: (ms?: number) => void } | null>(null)
+  const fgRef = useRef<any>(null)
   const [hoveredNode, setHoveredNode] = useState<TopologyNode | null>(null)
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })
+  const [tooltipPos] = useState({ x: 0, y: 0 })
 
   const graphData = React.useMemo(() => {
     if (!data) return { nodes: [], links: [] }
@@ -105,7 +105,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, isLoading, onNodeCl
   return (
     <div className="relative w-full h-full bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
       <ForceGraph2D
-        ref={fgRef as React.MutableRefObject<{ zoomIn: () => void; zoomOut: () => void; zoomToFit: (ms?: number) => void } | null>}
+        ref={fgRef}
         graphData={graphData}
         nodeCanvasObject={nodeCanvasObject}
         nodeCanvasObjectMode={() => 'replace'}
@@ -113,13 +113,9 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, isLoading, onNodeCl
         linkColor={() => '#d1d5db'}
         linkWidth={1.5}
         onNodeClick={handleNodeClick}
-        onNodeHover={(node, prevNode, event) => {
+        onNodeHover={(node) => {
           if (node && 'device_id' in node) {
             setHoveredNode(node as unknown as TopologyNode)
-            if (event) {
-              const rect = (event.target as HTMLCanvasElement).getBoundingClientRect()
-              setTooltipPos({ x: (event as MouseEvent).clientX - rect.left + 12, y: (event as MouseEvent).clientY - rect.top })
-            }
           } else {
             setHoveredNode(null)
           }

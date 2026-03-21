@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { clsx } from 'clsx'
-import LoadingSpinner from './LoadingSpinner'
 import EmptyState from './EmptyState'
 
 export interface Column<T> {

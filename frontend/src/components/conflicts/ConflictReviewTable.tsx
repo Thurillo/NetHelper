@@ -5,7 +5,7 @@ import ConflictDiffCard from './ConflictDiffCard'
 import Pagination from '../common/Pagination'
 import LoadingSpinner from '../common/LoadingSpinner'
 import EmptyState from '../common/EmptyState'
-import { ConflictTypeBadge, ConflictStatusBadge } from '../common/Badge'
+import { ConflictTypeBadge } from '../common/Badge'
 import type { ConflictFilters, ConflictType, ConflictStatus, ScanConflict } from '../../types'
 
 interface ConflictReviewTableProps {
