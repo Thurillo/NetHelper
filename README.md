@@ -2,7 +2,7 @@
 
 > **Gestione semplificata della rete aziendale** — discovery SNMP/SSH, inventario dispositivi, armadi rack, patch panel, IPAM, VLAN e topologia visuale.
 
-NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e medie dimensioni con dispositivi **Cisco** e **Ubiquiti UniFi**. Tutto il backend è interrogabile via **REST API**, ideale per flussi **n8n** e bot **Telegram**.
+NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e medie dimensioni. Supporta **Cisco, UniFi, Fortinet, HPE Aruba, Juniper, Netgear** e qualsiasi switch con SNMP+LLDP standard. Tutto il backend è interrogabile via **REST API**, ideale per flussi **n8n** e bot **Telegram**.
 
 ---
 
@@ -11,7 +11,7 @@ NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e
 - [Funzionalità](#-funzionalità)
 - [Architettura](#-architettura)
 - [Installazione su Debian 13 (LXC Proxmox)](#-installazione-su-debian-13-lxc-proxmox)
-- [Avvio rapido in locale](#-avvio-rapido-in-locale)
+- [Gestione utenti (CLI)](#-gestione-utenti-cli)
 - [Guida all'uso](#-guida-alluso)
 - [REST API](#-rest-api)
 - [Aggiungere un nuovo vendor](#-aggiungere-un-nuovo-vendor)
@@ -70,7 +70,7 @@ NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e
 - **Database:** PostgreSQL 16
 - **Task queue:** Celery 5 + Redis (worker + beat scheduler)
 - **SNMP:** puresnmp (async, pure Python)
-- **SSH:** netmiko + ntc-templates (Cisco IOS, UniFi)
+- **SSH:** netmiko + ntc-templates
 - **Frontend:** React 18 · Vite · TypeScript · Tailwind CSS · TanStack Query
 
 ---
@@ -82,302 +82,133 @@ NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e
 Eseguire sul **nodo Proxmox** (non nel container):
 
 ```bash
-# Scaricare il template Debian 13 se non presente
 pveam update
 pveam download local debian-13-standard_13.0-1_amd64.tar.zst
 
-# Creare il container (ID 200, adattare a piacere)
 pct create 200 local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst \
     --hostname nethelper \
-    --cores 2 \
-    --memory 2048 \
-    --swap 512 \
+    --cores 2 --memory 2048 --swap 512 \
     --rootfs local-lvm:20 \
     --net0 name=eth0,bridge=vmbr0,ip=dhcp \
-    --unprivileged 1 \
-    --features nesting=1 \
+    --unprivileged 1 --features nesting=1 \
     --start 1
 
-# Entrare nel container
 pct enter 200
 ```
 
-> 💡 **Risorse consigliate:** 2 vCPU, 2 GB RAM, 20 GB disco. Per reti >200 dispositivi aumentare a 4 GB RAM.
+> 💡 **Risorse consigliate:** 2 vCPU · 2 GB RAM · 20 GB disco. Per reti >200 dispositivi: 4 GB RAM.
 
 ---
 
-### 2. Preparazione sistema
+### 2. Eseguire lo script di installazione
+
+All'interno del container LXC, come **root**:
 
 ```bash
-# Aggiornare i pacchetti
-apt update && apt upgrade -y
+apt install -y curl git
+curl -fsSL https://raw.githubusercontent.com/Thurillo/NetHelper/master/deploy/scripts/setup.sh -o setup.sh
+bash setup.sh
+```
 
-# Installare le dipendenze di sistema
-apt install -y \
-    python3.12 python3.12-venv python3.12-dev python3-pip \
-    libpq-dev libssl-dev libffi-dev build-essential \
-    postgresql postgresql-contrib \
-    redis-server \
-    nginx \
-    nodejs npm \
-    git curl wget \
-    snmp iputils-ping \
-    acl
+Si apre il menu di gestione:
 
-# Verificare le versioni
-python3.12 --version   # Python 3.12.x
-node --version         # v18+
-npm --version          # 9+
-psql --version         # PostgreSQL 16.x
+```
+  ╔══════════════════════════════════════════════════╗
+  ║           NetHelper  –  Gestione                ║
+  ╠══════════════════════════════════════════════════╣
+  ║                                                  ║
+  ║   1)  Nuova installazione                        ║
+  ║   2)  Aggiornamento  (mantiene tutti i dati)     ║
+  ║   3)  Cambia password utente                     ║
+  ║   0)  Esci                                       ║
+  ║                                                  ║
+  ╚══════════════════════════════════════════════════╝
+```
+
+Scegliere **1** per la prima installazione.
+
+Lo script installa automaticamente:
+- Tutti i pacchetti di sistema (Python 3.12, Node.js, PostgreSQL, Redis, Nginx…)
+- Il codice da GitHub
+- Il virtualenv Python con tutte le dipendenze
+- Il file `.env` con chiavi generate casualmente
+- Le migrazioni del database
+- I profili vendor predefiniti (Cisco, UniFi, Fortinet, Aruba, HP, Juniper, Netgear…)
+- I servizi systemd (api, worker, beat)
+- Nginx come reverse proxy
+
+Al termine chiede solo **username** e **password** del primo utente admin.
+
+---
+
+### 3. Accedere all'applicazione
+
+```
+http://<IP_DEL_CONTAINER>          Interfaccia web
+http://<IP_DEL_CONTAINER>/api/docs  Swagger API
 ```
 
 ---
 
-### 3. Creare l'utente applicazione
+## 👤 Gestione utenti (CLI)
+
+Tutte le operazioni sugli utenti possono essere eseguite tramite il menu `setup.sh` **oppure** direttamente da riga di comando.
+
+### Accedere agli script
 
 ```bash
-useradd -r -m -s /bin/bash nethelper
-mkdir -p /opt/nethelper
-chown nethelper:nethelper /opt/nethelper
+# Sul server Debian
+sudo bash /opt/nethelper/deploy/scripts/setup.sh
 ```
 
----
-
-### 4. Configurare PostgreSQL
-
-```bash
-# Avviare e abilitare PostgreSQL
-systemctl enable --now postgresql
-
-# Creare utente e database
-su - postgres -c "createuser nethelper"
-su - postgres -c "createdb nethelper -O nethelper"
-
-# Impostare la password (sostituire CON_UNA_PASSWORD_SICURA)
-su - postgres -c "psql -c \"ALTER USER nethelper WITH PASSWORD 'CON_UNA_PASSWORD_SICURA';\""
-```
-
----
-
-### 5. Configurare Redis
-
-```bash
-systemctl enable --now redis-server
-
-# Verificare che Redis sia attivo
-redis-cli ping   # risponde: PONG
-```
-
----
-
-### 6. Scaricare il codice
-
-```bash
-su - nethelper
-cd /opt/nethelper
-git clone https://github.com/Thurillo/nethelper.git .
-```
-
----
-
-### 7. Installare il backend Python
-
-```bash
-# Ancora come utente nethelper
-python3.12 -m venv /opt/nethelper/venv
-source /opt/nethelper/venv/bin/activate
-
-pip install --upgrade pip
-pip install -r /opt/nethelper/backend/requirements.txt
-```
-
----
-
-### 8. Configurare le variabili d'ambiente
-
-```bash
-cp /opt/nethelper/backend/.env.example /opt/nethelper/backend/.env
-chmod 600 /opt/nethelper/backend/.env
-
-# Generare chiavi sicure
-SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-ENCRYPTION_KEY=$(python3 -c "import secrets; print(secrets.token_hex(16))")
-
-# Modificare il file .env
-nano /opt/nethelper/backend/.env
-```
-
-Contenuto del file `.env` (valori da adattare):
-
-```env
-DATABASE_URL=postgresql+asyncpg://nethelper:CON_UNA_PASSWORD_SICURA@localhost/nethelper
-REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/1
-CELERY_RESULT_BACKEND=redis://localhost:6379/2
-SECRET_KEY=<incollare il SECRET_KEY generato sopra>
-ENCRYPTION_KEY=<incollare l'ENCRYPTION_KEY generato sopra>
-ACCESS_TOKEN_EXPIRE_MINUTES=480
-REFRESH_TOKEN_EXPIRE_DAYS=7
-APP_NAME=NetHelper
-DEBUG=false
-```
-
----
-
-### 9. Eseguire le migrazioni del database
+Oppure direttamente (come root o utente nethelper):
 
 ```bash
 source /opt/nethelper/venv/bin/activate
 cd /opt/nethelper/backend
-alembic upgrade head
 ```
 
 ---
 
-### 10. Creare il primo utente admin
+### Creare un nuovo utente admin
+
+**Via menu setup.sh → opzione 1** (solo al primo avvio), oppure da CLI:
 
 ```bash
-source /opt/nethelper/venv/bin/activate
-cd /opt/nethelper/backend
 python -m app.scripts.create_admin
 ```
 
-Seguire le istruzioni interattive:
+Verrà chiesto username, email (opzionale) e password in modo interattivo.
+
+Per creare un utente senza interazione (es. da script):
+
+```bash
+python -m app.scripts.create_admin --username mario --password password123
 ```
-Username: admin
-Email (opzionale): admin@azienda.local
-Password: ●●●●●●●●
-✓ Utente admin creato con successo.
+
+> Crea sempre un utente con ruolo **Admin**. Per creare utenti con ruolo *Sola lettura*, usare la sezione **Impostazioni → Utenti** nell'interfaccia web (richiede login come admin).
+
+---
+
+### Cambiare la password di un utente
+
+**Via menu setup.sh → opzione 3**, oppure da CLI:
+
+```bash
+python -m app.scripts.change_password
+```
+
+Oppure senza interazione:
+
+```bash
+python -m app.scripts.change_password --username mario --password nuovapassword
 ```
 
 ---
 
-### 11. Compilare il frontend
+### Aggiornare NetHelper
 
-```bash
-cd /opt/nethelper/frontend
-npm ci
-npm run build
-# Output: /opt/nethelper/frontend/dist/
-```
-
----
-
-### 12. Installare i servizi systemd
-
-```bash
-# Uscire dall'utente nethelper
-exit
-
-# Copiare i file di servizio
-cp /opt/nethelper/deploy/systemd/nethelper-api.service    /etc/systemd/system/
-cp /opt/nethelper/deploy/systemd/nethelper-worker.service /etc/systemd/system/
-cp /opt/nethelper/deploy/systemd/nethelper-beat.service   /etc/systemd/system/
-
-# Abilitare e avviare i servizi
-systemctl daemon-reload
-systemctl enable --now nethelper-api nethelper-worker nethelper-beat
-
-# Verificare lo stato
-systemctl status nethelper-api
-systemctl status nethelper-worker
-systemctl status nethelper-beat
-```
-
----
-
-### 13. Configurare Nginx
-
-```bash
-cp /opt/nethelper/deploy/nginx/nethelper.conf /etc/nginx/sites-available/
-ln -s /etc/nginx/sites-available/nethelper.conf /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
-
-# Sostituire l'underscore con il proprio hostname o IP
-nano /etc/nginx/sites-available/nethelper.conf
-# → server_name nethelper.local;   (o l'IP del container)
-
-nginx -t && systemctl enable --now nginx
-```
-
----
-
-### 14. Verifica installazione
-
-```bash
-# Controllare che tutti i servizi siano attivi
-systemctl is-active nethelper-api      # active
-systemctl is-active nethelper-worker   # active
-systemctl is-active nethelper-beat     # active
-systemctl is-active nginx              # active
-systemctl is-active postgresql         # active
-systemctl is-active redis-server       # active
-
-# Test API
-curl -s http://localhost:8000/api/health | python3 -m json.tool
-# {"status": "ok", "app": "NetHelper"}
-```
-
-Aprire il browser: **`http://<IP_DEL_CONTAINER>`** ✅
-
----
-
-### Script di installazione automatica
-
-In alternativa ai passi manuali, è disponibile uno script che automatizza tutta l'installazione:
-
-```bash
-# Come root nel container LXC
-cd /opt/nethelper
-REPO_URL=https://github.com/Thurillo/nethelper.git \
-DB_PASS=password_sicura \
-bash deploy/scripts/install.sh
-```
-
----
-
-### Aggiornamento
-
-```bash
-su - nethelper
-cd /opt/nethelper
-git pull origin master
-
-source venv/bin/activate
-pip install -r backend/requirements.txt   # aggiorna dipendenze Python
-cd backend && alembic upgrade head        # applica nuove migrazioni
-
-cd /opt/nethelper/frontend
-npm ci && npm run build                   # ricompila frontend
-
-exit
-systemctl restart nethelper-api nethelper-worker nethelper-beat
-```
-
----
-
-## 💻 Avvio rapido in locale
-
-Per sviluppo/test su macchina locale (richiede Python 3.12, Node 18+, PostgreSQL, Redis):
-
-```bash
-git clone https://github.com/Thurillo/nethelper.git
-cd nethelper
-
-# Backend
-cd backend
-python3.12 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env          # modificare le variabili
-alembic upgrade head
-python -m app.scripts.create_admin
-uvicorn app.main:app --reload --port 8000
-
-# Frontend (nuovo terminale)
-cd frontend
-npm install
-npm run dev                   # http://localhost:5173
-```
+**Via menu setup.sh → opzione 2** — aggiorna il codice da GitHub, applica le nuove migrazioni, ricompila il frontend e riavvia i servizi. **I dati nel database vengono preservati.**
 
 ---
 
@@ -419,10 +250,6 @@ Aprendo un armadio si visualizza il **diagramma rack** interattivo:
 - I dispositivi sono posizionati trascinandoli (drag-and-drop) nella posizione U desiderata
 - Colori diversi per tipo dispositivo (switch, patch panel, server, PDU…)
 
-Per aggiungere un dispositivo all'armadio:
-1. Aprire il dispositivo → campo **Posizione U** e **Armadio**
-2. Oppure direttamente dal diagramma rack → tasto **Assegna dispositivo**
-
 ---
 
 ### Dispositivi
@@ -437,8 +264,8 @@ Un dispositivo rappresenta qualsiasi apparato fisico in rete.
 | Vendor | Profilo vendor con credenziali SNMP/SSH predefinite |
 | SNMP community | Override per questo dispositivo (v2c o v3) |
 | Credenziali SSH | Username/password o chiave privata |
-| Posizione U | Slot nell'armadio (da quale U parte) |
-| Altezza | Numero di U occupate (es. 2U per uno switch 2U) |
+| Posizione U | Slot nell'armadio |
+| Altezza | Numero di U occupate |
 
 **Scheda dispositivo — Tab disponibili:**
 - **Interfacce** — tutte le porte fisiche con MAC, VLAN, velocità, stato
@@ -448,130 +275,120 @@ Un dispositivo rappresenta qualsiasi apparato fisico in rete.
 
 ---
 
+### Vendor supportati
+
+I seguenti vendor sono preconfigurati con profili SNMP/SSH predefiniti:
+
+| Vendor | Driver | Note |
+|--------|--------|------|
+| Cisco IOS / IOS-XE | `cisco_ios` | CDP, per-VLAN MAC walk |
+| Cisco NX-OS | `cisco_nxos` | Nexus datacenter |
+| Ubiquiti UniFi | `unifi` | SSH mca-dump JSON |
+| Fortinet FortiSwitch | `generic_lldp` | SNMP + LLDP standard |
+| HPE Aruba | `generic_lldp` | Aruba CX / AOS |
+| HP ProCurve | `hp_procurve` | Legacy e OfficeConnect |
+| Juniper | `generic_lldp` | EX / QFX series |
+| Netgear | `generic_lldp` | Switch managed |
+| MikroTik | `generic_lldp` | RouterOS / SwOS |
+| D-Link | `generic_lldp` | Switch managed |
+| TP-Link / Omada | `generic_lldp` | Switch managed |
+
+Qualsiasi switch che supporta **SNMP v2c + LLDP standard** funziona con il driver `generic_lldp` anche se non in lista.
+
+---
+
 ### Scansione
 
 #### Scansione manuale dispositivo
 
 1. Aprire **Scansione** dal menu laterale
 2. Selezionare il dispositivo da scansionare
-3. Scegliere il tipo:
-   - `SNMP Completo` — interfacce + ARP + tabella MAC + LLDP/CDP
-   - `SNMP ARP` — solo tabella ARP
-   - `SNMP MAC` — solo tabella MAC address
-   - `SNMP LLDP` — solo neighbor discovery
-   - `SSH Completo` — connessione SSH, raccolta dati via CLI
+3. Scegliere il tipo: `SNMP Completo`, `SNMP ARP`, `SNMP MAC`, `SNMP LLDP`, `SSH Completo`
 4. Cliccare **Avvia scansione**
 5. Il log in tempo reale mostra l'avanzamento
 
 #### Scansione IP range (ping sweep)
 
-Utile per scoprire nuovi host sulla rete:
-
 1. **Scansione → Scansione IP Range**
 2. Inserire **IP iniziale** e **IP finale** (es. `192.168.1.1` → `192.168.1.254`)
-3. Opzionale: specificare le **porte TCP** da verificare (default: 22, 80, 443, 8080, 8443)
+3. Opzionale: specificare le **porte TCP** da verificare (default: 22, 80, 443)
 4. Cliccare **Avvia**
-
-Risultato: ogni host attivo viene aggiunto come `IpAddress` con sorgente `ip_range_scan`. Se già presente in un prefisso IPAM, viene associato automaticamente.
 
 #### Scansioni pianificate
 
 1. **Pianificazione scan** → **Nuova pianificazione**
-2. Selezionare il dispositivo e il tipo di scan
-3. Inserire un'espressione **cron** (es. `0 2 * * *` = ogni notte alle 02:00)
+2. Selezionare dispositivo e tipo scan
+3. Inserire espressione **cron** (es. `0 2 * * *` = ogni notte alle 02:00)
 4. Abilitare/disabilitare senza eliminare
 
 ---
 
 ### Conflitti
 
-Le scansioni periodiche **non sovrascrivono** i dati esistenti. Se rilevano differenze, creano dei **conflitti** da revisionare.
+Le scansioni periodiche **non sovrascrivono** i dati esistenti. Se rilevano differenze, creano **conflitti** da revisionare.
 
 **Pagina Conflitti:**
 - Ogni conflitto mostra: dispositivo, campo, **Valore attuale** vs **Valore rilevato**
-- Azioni disponibili per ogni conflitto:
-  - ✅ **Accetta** — applica il nuovo valore al database
-  - ❌ **Rifiuta** — mantiene il valore attuale
-  - ⏭️ **Ignora** — chiude il conflitto senza azione
+- ✅ **Accetta** — applica il nuovo valore al database
+- ❌ **Rifiuta** — mantiene il valore attuale
+- ⏭️ **Ignora** — chiude il conflitto senza azione
+- **Accetta tutti / Rifiuta tutti** — azione bulk per dispositivo o scan job
 
-- **Accetta tutti / Rifiuta tutti** — azione bulk per tutti i conflitti di un dispositivo
-
-**Switch non gestiti sospetti:**
-Quando una porta ha ≥ 3 MAC address distinti, viene creato un conflitto speciale `Switch non gestito sospetto`. L'admin può:
-- **Conferma come Switch** — crea un dispositivo con tipo `Switch non gestito`
-- **Ignora** — chiude il conflitto
+**Switch non gestiti sospetti:** porta con ≥3 MAC → conflitto speciale. L'admin può confermarlo come dispositivo `Switch non gestito` o ignorarlo.
 
 ---
 
 ### Patch Panel
 
-I patch panel sono dispositivi speciali con gestione visuale delle porte.
-
 1. Creare un dispositivo di tipo **Patch Panel** e assegnarlo a un armadio
 2. Aprire **Patch Panel** dal menu → selezionare il panel
-3. Visualizzazione a griglia delle porte con colori:
+3. Visualizzazione a griglia delle porte:
    - 🟢 **Verde** — porta collegata a una porta switch
-   - 🟡 **Giallo** — solo stanza di destinazione annotata
+   - 🟡 **Giallo** — stanza di destinazione annotata
    - ⬜ **Grigio** — porta libera
 
-**Per ogni porta è possibile definire:**
-| Campo | Esempio |
-|-------|---------|
+| Campo porta | Esempio |
+|-------------|---------|
 | Etichetta | `PC-SALA-RIUNIONI-01` |
 | Stanza di destinazione | `Piano 2 – Sala Riunioni` |
 | Collegamento a switch | `SW-CORE / Gi0/12` |
-| Note | Qualsiasi annotazione libera |
 
 ---
 
 ### VLAN
 
-1. **VLAN → Nuova VLAN**
-2. Inserire VLAN ID (1–4094), nome, sede (opzionale)
-3. Le VLAN vengono associate automaticamente alle interfacce durante la scansione
-4. Da una VLAN è possibile vedere tutte le interfacce che la usano e i prefissi IP associati
+1. **VLAN → Nuova VLAN** — inserire ID (1–4094), nome, sede (opzionale)
+2. Le VLAN vengono associate automaticamente alle interfacce durante la scansione
+3. Da una VLAN: visualizzare tutte le interfacce che la usano e i prefissi IP associati
 
 ---
 
 ### Prefissi IP (IPAM)
 
-Gestione dei blocchi di indirizzi:
-
-1. **Prefissi IP → Nuovo prefisso**
-2. Inserire il blocco CIDR (es. `192.168.20.0/24`)
-3. Associare opzionalmente a una sede e/o VLAN
-4. La scheda del prefisso mostra:
-   - **Utilizzo** — barra percentuale (IP usati / totale)
-   - **IP disponibili** — lista dei prossimi indirizzi liberi
+1. **Prefissi IP → Nuovo prefisso** — inserire blocco CIDR (es. `192.168.20.0/24`)
+2. Associare opzionalmente a sede e/o VLAN
+3. La scheda mostra:
+   - **Utilizzo** — barra percentuale
+   - **IP disponibili** — prossimi indirizzi liberi
    - **IP assegnati** — con dispositivo, interfaccia e sorgente
 
-**Aggiungere un IP manualmente:**
-Prefissi IP → selezionare il prefisso → **Aggiungi IP** → inserire indirizzo, dispositivo e interfaccia.
+**Aggiungere IP manualmente:** Prefissi IP → selezionare prefisso → **Aggiungi IP**
 
 ---
 
 ### Topologia
 
-La pagina **Topologia** mostra un grafo interattivo force-directed di tutti i dispositivi collegati via cavo:
-
-- **Nodi** = dispositivi, colorati per tipo
+Grafo interattivo force-directed di tutti i dispositivi collegati:
+- **Nodi** = dispositivi colorati per tipo
 - **Archi** = cavi (con tipo: Cat6, Fibra, DAC…)
 - **Hover** su un nodo → mostra nome, IP, armadio, sede
 - **Filtri** per sede e tipo dispositivo
-- Zoom e pan con mouse/trackpad
 
 ---
 
 ### Storico modifiche (Audit Log)
 
-Ogni creazione, modifica ed eliminazione è registrata con:
-- Utente che ha effettuato l'azione
-- Data e ora
-- Entità modificata (dispositivo, interfaccia, IP…)
-- Campo, valore precedente e nuovo valore
-- IP del client
-
-Accessibile da **Storico modifiche** — filtrabile per utente, entità e intervallo di date.
+Ogni creazione, modifica ed eliminazione è registrata con utente, data/ora, entità, campo, valore precedente e nuovo valore, IP client.
 
 ---
 
@@ -590,10 +407,8 @@ Accessibile da **Storico modifiche** — filtrabile per utente, entità e interv
 
 ## 🔌 REST API
 
-Tutta la documentazione interattiva è disponibile su:
-
 ```
-http://<IP_NETHELPER>/api/docs      # Swagger UI
+http://<IP_NETHELPER>/api/docs      # Swagger UI (interattivo)
 http://<IP_NETHELPER>/api/redoc     # ReDoc
 ```
 
@@ -613,41 +428,25 @@ curl http://<IP>/api/v1/devices \
   -H "Authorization: Bearer eyJ..."
 ```
 
-### Esempi di utilizzo (n8n / Telegram)
+### Esempi
 
 ```bash
-# Lista dispositivi attivi
-GET /api/v1/devices?status=active
-
-# Dispositivi in un armadio specifico
-GET /api/v1/devices?cabinet_id=3
-
-# MAC address visti su un dispositivo
-GET /api/v1/devices/5/mac-entries
-
-# Tutti i conflitti in attesa
-GET /api/v1/conflicts?status=pending
-
-# Avviare una scansione SNMP
-POST /api/v1/devices/5/scan
-{"scan_type": "snmp_full"}
-
-# Scansione IP range
-POST /api/v1/scan-jobs/ip-range
-{"start_ip": "192.168.1.1", "end_ip": "192.168.1.254", "ports": [22, 80, 443]}
-
-# Prefissi IP con utilizzo
-GET /api/v1/prefixes/1/utilization
-
-# Statistiche dashboard
-GET /api/v1/dashboard/stats
+GET  /api/v1/devices?status=active           # lista dispositivi attivi
+GET  /api/v1/devices/5/mac-entries           # MAC visti su un dispositivo
+GET  /api/v1/conflicts?status=pending        # conflitti in attesa
+POST /api/v1/devices/5/scan                  # avvia scansione SNMP
+     body: {"scan_type": "snmp_full"}
+POST /api/v1/scan-jobs/ip-range              # ping sweep
+     body: {"start_ip": "192.168.1.1", "end_ip": "192.168.1.254"}
+GET  /api/v1/prefixes/1/utilization          # utilizzo prefisso IP
+GET  /api/v1/dashboard/stats                 # statistiche dashboard
 ```
 
 ---
 
 ## 🔧 Aggiungere un nuovo vendor
 
-NetHelper supporta un sistema di driver estendibile. Per aggiungere un nuovo vendor (es. Aruba, HP, MikroTik):
+Per aggiungere un vendor non in lista (es. un modello specifico con CLI proprietaria):
 
 1. **Creare il driver** in `backend/app/discovery/drivers/nuovovendor.py`:
 
@@ -656,7 +455,7 @@ from .base import BaseDriver, CollectedData
 
 class NuovoVendorDriver(BaseDriver):
     async def collect(self) -> CollectedData:
-        # Implementare la raccolta dati via SSH o SNMP
+        # Raccolta dati via SSH o SNMP vendor-specific
         ...
 ```
 
@@ -664,55 +463,25 @@ class NuovoVendorDriver(BaseDriver):
 
 ```python
 VENDOR_DRIVERS = {
-    "cisco_ios": CiscoIosDriver,
-    "unifi":     UnifiDriver,
-    "nuovovendor": NuovoVendorDriver,   # ← aggiungere qui
+    "cisco_ios":    CiscoIosDriver,
+    "unifi":        UnifiDriver,
+    "generic_lldp": GenericLldpDriver,
+    "nuovovendor":  NuovoVendorDriver,   # ← aggiungere qui
 }
 ```
 
-3. **Inserire il record vendor** nel database (o via interfaccia **Vendor**):
+3. **Inserire il record vendor** via interfaccia web (**Impostazioni → Vendor**) o con `seed_vendors.py`.
 
-```json
-{
-  "name": "Nuovo Vendor",
-  "slug": "nuovovendor",
-  "driver_class": "nuovovendor",
-  "snmp_default_community": "public",
-  "ssh_default_port": 22
-}
-```
-
----
-
-## 📁 Struttura del progetto
-
-```
-nethelper/
-├── backend/
-│   ├── app/
-│   │   ├── models/        # Modelli SQLAlchemy
-│   │   ├── schemas/       # Schemi Pydantic (request/response)
-│   │   ├── routers/       # Endpoint FastAPI
-│   │   ├── crud/          # Accesso al database
-│   │   ├── discovery/     # SNMP, SSH, driver vendor
-│   │   └── tasks/         # Celery worker e beat
-│   ├── alembic/           # Migrazioni database
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── components/    # Componenti React (rack, topologia, patch panel…)
-│       └── pages/         # Pagine dell'applicazione
-└── deploy/
-    ├── nginx/             # Configurazione Nginx
-    ├── systemd/           # Servizi systemd (api, worker, beat)
-    └── scripts/           # Script installazione automatica
-```
+> Per switch che usano solo SNMP standard + LLDP, non serve scrivere un driver: basta inserire il vendor con `driver_class: "generic_lldp"`.
 
 ---
 
 ## 🛠️ Comandi utili post-installazione
 
 ```bash
+# Riaprire il menu di gestione
+sudo bash /opt/nethelper/deploy/scripts/setup.sh
+
 # Log in tempo reale
 journalctl -u nethelper-api    -f
 journalctl -u nethelper-worker -f
@@ -726,6 +495,34 @@ pg_dump -U nethelper nethelper > backup_$(date +%Y%m%d).sql
 
 # Ripristino backup
 psql -U nethelper nethelper < backup_20240101.sql
+```
+
+---
+
+## 📁 Struttura del progetto
+
+```
+NetHelper/
+├── backend/
+│   ├── app/
+│   │   ├── models/        # Modelli SQLAlchemy
+│   │   ├── schemas/       # Schemi Pydantic
+│   │   ├── routers/       # Endpoint FastAPI
+│   │   ├── crud/          # Accesso al database
+│   │   ├── discovery/     # SNMP, SSH, driver vendor
+│   │   ├── scripts/       # create_admin, change_password, seed_vendors
+│   │   └── tasks/         # Celery worker e beat
+│   ├── alembic/           # Migrazioni database
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── components/    # Componenti React
+│       └── pages/         # Pagine dell'applicazione
+└── deploy/
+    ├── nginx/             # Configurazione Nginx
+    ├── systemd/           # Servizi systemd
+    └── scripts/
+        └── setup.sh       # Script installazione/aggiornamento/gestione
 ```
 
 ---
