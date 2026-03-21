@@ -17,7 +17,7 @@ ExecStart=/opt/nethelper/venv/bin/celery \
     worker \
     --loglevel=info \
     --concurrency=4 \
-    --queues=scans,default \
+    --queues=scans,default,celery \
     --time-limit=600 \
     --soft-time-limit=540 \
     --hostname=worker@%%h
