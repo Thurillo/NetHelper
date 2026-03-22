@@ -570,6 +570,7 @@ interface CabinetGroup {
 const SwitchesPage: React.FC = () => {
   const [vendorModalOpen, setVendorModalOpen] = useState(false)
   const [vendorAdded, setVendorAdded] = useState<string | null>(null)
+  const [cabinetFilter, setCabinetFilter] = useState<string>('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['switches-all'],
@@ -593,6 +594,10 @@ const SwitchesPage: React.FC = () => {
     return a.cabinetName.localeCompare(b.cabinetName)
   })
 
+  const visibleGroups = cabinetFilter
+    ? groups.filter(g => String(g.cabinetId ?? 'none') === cabinetFilter)
+    : groups
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -608,6 +613,18 @@ const SwitchesPage: React.FC = () => {
               ✓ Vendor "{vendorAdded}" aggiunto
             </span>
           )}
+          <select
+            value={cabinetFilter}
+            onChange={e => setCabinetFilter(e.target.value)}
+            className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">Tutti gli armadi</option>
+            {groups.map(g => (
+              <option key={g.cabinetId ?? 'none'} value={String(g.cabinetId ?? 'none')}>
+                {g.cabinetName ?? 'Senza armadio'} ({g.switches.length})
+              </option>
+            ))}
+          </select>
           <button
             onClick={() => { setVendorAdded(null); setVendorModalOpen(true) }}
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
@@ -634,7 +651,7 @@ const SwitchesPage: React.FC = () => {
         />
       ) : (
         <div className="space-y-8">
-          {groups.map(group => (
+          {visibleGroups.map(group => (
             <div key={group.cabinetId ?? 'none'} className="space-y-3">
               <div className="flex items-center gap-2">
                 <Server size={15} className="text-gray-400 flex-shrink-0" />
