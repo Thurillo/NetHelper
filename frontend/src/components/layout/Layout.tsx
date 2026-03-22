@@ -2,14 +2,18 @@ import React from 'react'
 import { Outlet, Navigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import ToastContainer from '../common/ToastContainer'
 import { useAuthStore } from '../../store/authStore'
 import { usePendingCount } from '../../hooks/useConflicts'
+import { useScanNotifier } from '../../hooks/useScanNotifier'
 
 const Layout: React.FC = () => {
   const { user, accessToken } = useAuthStore()
 
   // Keep pending conflicts count in sync
   usePendingCount()
+  // Show toast notifications when scans finish
+  useScanNotifier()
 
   if (!user || !accessToken) {
     return <Navigate to="/login" replace />
@@ -24,6 +28,7 @@ const Layout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+      <ToastContainer />
     </div>
   )
 }
