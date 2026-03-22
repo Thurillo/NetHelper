@@ -3,8 +3,9 @@ from __future__ import annotations
 from ipaddress import IPv4Network, IPv6Network, ip_address as parse_ip, ip_network
 from typing import Union
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.crud.base import CRUDBase
 from app.models.ip_address import IpAddress
@@ -13,11 +14,49 @@ from app.schemas.ip_prefix import IpPrefixCreate, IpPrefixUpdate, PrefixUtilizat
 
 
 class CRUDIpPrefix(CRUDBase[IpPrefix, IpPrefixCreate, IpPrefixUpdate]):
+
+    async def get(self, db: AsyncSession, id: int) -> IpPrefix | None:
+        result = await db.execute(
+            select(IpPrefix)
+            .options(selectinload(IpPrefix.site), selectinload(IpPrefix.vlan))
+            .where(IpPrefix.id == id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_multi(
+        self,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 100,
+        **filters,
+    ) -> list[IpPrefix]:
+        stmt = (
+            select(IpPrefix)
+            .options(selectinload(IpPrefix.site), selectinload(IpPrefix.vlan))
+        )
+        for field, value in filters.items():
+            if value is not None and hasattr(IpPrefix, field):
+                stmt = stmt.where(getattr(IpPrefix, field) == value)
+        stmt = stmt.offset(skip).limit(limit)
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
     async def get_by_prefix(self, db: AsyncSession, prefix: str) -> IpPrefix | None:
         result = await db.execute(
             select(IpPrefix).where(IpPrefix.prefix == prefix)
         )
         return result.scalar_one_or_none()
+
+    async def get_used_counts(self, db: AsyncSession, prefix_ids: list[int]) -> dict[int, int]:
+        """Return {prefix_id: assigned_ip_count} for the given prefix IDs (single query)."""
+        if not prefix_ids:
+            return {}
+        result = await db.execute(
+            select(IpAddress.prefix_id, func.count(IpAddress.id))
+            .where(IpAddress.prefix_id.in_(prefix_ids))
+            .group_by(IpAddress.prefix_id)
+        )
+        return {row[0]: row[1] for row in result.all()}
 
     async def get_utilization(
         self, db: AsyncSession, prefix_id: int
@@ -33,13 +72,11 @@ class CRUDIpPrefix(CRUDBase[IpPrefix, IpPrefixCreate, IpPrefixUpdate]):
         except ValueError:
             return None
 
-        # Count usable hosts (exclude network and broadcast for IPv4)
         if isinstance(network, IPv4Network):
             total = max(network.num_addresses - 2, 0) if network.prefixlen < 31 else network.num_addresses
         else:
             total = network.num_addresses
 
-        # Count assigned IPs in this prefix
         result = await db.execute(
             select(IpAddress).where(IpAddress.prefix_id == prefix_id)
         )
@@ -68,12 +105,10 @@ class CRUDIpPrefix(CRUDBase[IpPrefix, IpPrefixCreate, IpPrefixUpdate]):
         except ValueError:
             return []
 
-        # Get already-assigned IPs in this prefix
         result = await db.execute(
             select(IpAddress.address).where(IpAddress.prefix_id == prefix_id)
         )
         assigned_raw = {row[0] for row in result.all()}
-        # Normalize assigned IPs (strip CIDR notation)
         assigned = set()
         for a in assigned_raw:
             try:

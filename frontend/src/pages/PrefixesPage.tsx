@@ -113,13 +113,13 @@ const PrefixesPage: React.FC = () => {
                   {/* Utilization bar */}
                   <div className="flex-shrink-0 w-48">
                     <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>{prefix.used_ips} / {prefix.total_ips}</span>
-                      <span>{prefix.utilization_percent.toFixed(0)}%</span>
+                      <span>{prefix.used_ips ?? 0} / {prefix.total_ips ?? 0}</span>
+                      <span>{(prefix.utilization_percent ?? 0).toFixed(0)}%</span>
                     </div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${prefix.utilization_percent > 90 ? 'bg-red-500' : prefix.utilization_percent > 70 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                        style={{ width: `${Math.min(prefix.utilization_percent, 100)}%` }}
+                        className={`h-full rounded-full ${(prefix.utilization_percent ?? 0) > 90 ? 'bg-red-500' : (prefix.utilization_percent ?? 0) > 70 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                        style={{ width: `${Math.min(prefix.utilization_percent ?? 0, 100)}%` }}
                       />
                     </div>
                   </div>

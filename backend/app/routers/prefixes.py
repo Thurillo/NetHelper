@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ipaddress import IPv4Network, ip_network
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -22,6 +23,27 @@ from app.schemas.pagination import PaginatedResponse
 router = APIRouter(prefix="/prefixes", tags=["prefixes"])
 
 
+def _compute_utilization(prefix_str: str, used: int) -> tuple[int, float]:
+    """Return (total_ips, utilization_percent) for a CIDR prefix."""
+    try:
+        network = ip_network(prefix_str, strict=False)
+    except ValueError:
+        return 0, 0.0
+    if isinstance(network, IPv4Network):
+        total = max(network.num_addresses - 2, 0) if network.prefixlen < 31 else network.num_addresses
+    else:
+        total = network.num_addresses
+    pct = round((used / total * 100) if total > 0 else 0.0, 2)
+    return total, pct
+
+
+def _enrich(p, used: int) -> IpPrefixRead:
+    total, pct = _compute_utilization(p.prefix, used)
+    return IpPrefixRead.model_validate(p).model_copy(
+        update={"utilization_percent": pct, "total_ips": total, "used_ips": used}
+    )
+
+
 @router.get("/", response_model=PaginatedResponse[IpPrefixRead])
 async def list_prefixes(
     _: Annotated[object, Depends(get_current_user)],
@@ -33,9 +55,14 @@ async def list_prefixes(
     kwargs = {}
     if site_id is not None:
         kwargs["site_id"] = site_id
-    prefixes = await crud_ip_prefix.get_multi(db, skip=(page-1)*size, limit=size, **kwargs)
+    prefixes = await crud_ip_prefix.get_multi(db, skip=(page - 1) * size, limit=size, **kwargs)
     _total = await crud_ip_prefix.count(db)
-    return PaginatedResponse.build([IpPrefixRead.model_validate(p) for p in prefixes], total=_total, page=page, size=size)
+
+    # Batch-fetch used IP counts (single query)
+    used_map = await crud_ip_prefix.get_used_counts(db, [p.id for p in prefixes])
+    items = [_enrich(p, used_map.get(p.id, 0)) for p in prefixes]
+
+    return PaginatedResponse.build(items, total=_total, page=page, size=size)
 
 
 @router.post("/", response_model=IpPrefixRead, status_code=status.HTTP_201_CREATED)
@@ -56,7 +83,7 @@ async def create_prefix(
     await log_action(db, user_id=current_user.id, action="create", entity_table="ip_prefix",
                      entity_id=prefix.id, client_ip=client_ip,
                      description=f"Created prefix '{prefix.prefix}'.")
-    return IpPrefixRead.model_validate(prefix)
+    return _enrich(prefix, 0)
 
 
 @router.get("/{prefix_id}", response_model=IpPrefixRead)
@@ -68,7 +95,8 @@ async def get_prefix(
     prefix = await crud_ip_prefix.get(db, prefix_id)
     if prefix is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prefix not found.")
-    return IpPrefixRead.model_validate(prefix)
+    used_map = await crud_ip_prefix.get_used_counts(db, [prefix_id])
+    return _enrich(prefix, used_map.get(prefix_id, 0))
 
 
 @router.patch("/{prefix_id}", response_model=IpPrefixRead)
@@ -87,7 +115,8 @@ async def update_prefix(
     await log_action(db, user_id=current_user.id, action="update", entity_table="ip_prefix",
                      entity_id=updated.id, client_ip=client_ip,
                      description=f"Updated prefix '{updated.prefix}'.")
-    return IpPrefixRead.model_validate(updated)
+    used_map = await crud_ip_prefix.get_used_counts(db, [prefix_id])
+    return _enrich(updated, used_map.get(prefix_id, 0))
 
 
 @router.delete("/{prefix_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -125,7 +154,7 @@ async def get_available_ips(
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     size: int = 100,
-) -> PaginatedResponse[str]:
+) -> list[str]:
     prefix = await crud_ip_prefix.get(db, prefix_id)
     if prefix is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prefix not found.")
@@ -139,7 +168,7 @@ async def get_prefix_ip_addresses(
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = 1,
     size: int = 100,
-) -> PaginatedResponse[IpAddressRead]:
+) -> list[IpAddressRead]:
     prefix = await crud_ip_prefix.get(db, prefix_id)
     if prefix is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prefix not found.")

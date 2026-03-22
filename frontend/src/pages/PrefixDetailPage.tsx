@@ -94,13 +94,13 @@ const PrefixDetailPage: React.FC = () => {
         {/* Utilization bar */}
         <div className="mt-4">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-            <span>{prefix.used_ips} usati su {prefix.total_ips} totali</span>
-            <span className="font-semibold">{prefix.utilization_percent.toFixed(1)}%</span>
+            <span>{prefix.used_ips ?? 0} usati su {prefix.total_ips ?? 0} totali</span>
+            <span className="font-semibold">{(prefix.utilization_percent ?? 0).toFixed(1)}%</span>
           </div>
           <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${prefix.utilization_percent > 90 ? 'bg-red-500' : prefix.utilization_percent > 70 ? 'bg-yellow-500' : 'bg-green-500'}`}
-              style={{ width: `${Math.min(prefix.utilization_percent, 100)}%` }}
+              className={`h-full rounded-full transition-all ${(prefix.utilization_percent ?? 0) > 90 ? 'bg-red-500' : (prefix.utilization_percent ?? 0) > 70 ? 'bg-yellow-500' : 'bg-green-500'}`}
+              style={{ width: `${Math.min(prefix.utilization_percent ?? 0, 100)}%` }}
             />
           </div>
         </div>

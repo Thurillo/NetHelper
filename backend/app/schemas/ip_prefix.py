@@ -8,6 +8,19 @@ from pydantic import BaseModel
 from app.models.ip_prefix import PrefixStatus
 
 
+class _PrefixSite(BaseModel):
+    id: int
+    name: str
+    model_config = {"from_attributes": True}
+
+
+class _PrefixVlan(BaseModel):
+    id: int
+    vid: int
+    name: str
+    model_config = {"from_attributes": True}
+
+
 class IpPrefixCreate(BaseModel):
     prefix: str
     site_id: Optional[int] = None
@@ -39,6 +52,13 @@ class IpPrefixRead(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    # Computed fields — populated by the router
+    utilization_percent: float = 0.0
+    total_ips: int = 0
+    used_ips: int = 0
+    # Relationship fields
+    site: Optional[_PrefixSite] = None
+    vlan: Optional[_PrefixVlan] = None
 
     model_config = {"from_attributes": True}
 

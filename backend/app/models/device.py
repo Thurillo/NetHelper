@@ -30,6 +30,10 @@ class DeviceType(str, enum.Enum):
     firewall = "firewall"
     ups = "ups"
     unmanaged_switch = "unmanaged_switch"
+    workstation = "workstation"
+    printer = "printer"
+    camera = "camera"
+    phone = "phone"
     other = "other"
 
 

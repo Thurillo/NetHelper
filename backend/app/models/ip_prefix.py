@@ -19,6 +19,7 @@ class PrefixStatus(str, enum.Enum):
     active = "active"
     reserved = "reserved"
     deprecated = "deprecated"
+    container = "container"
 
 
 class IpPrefix(Base):
