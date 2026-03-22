@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.crud.base import CRUDBase
 from app.models.device import Device
+from app.models.interface import Interface
+from app.models.cable import Cable
 from app.schemas.device import DeviceCreate, DeviceUpdate
 from app.core.crypto import encrypt_value
 
@@ -34,6 +36,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
         exclude_device_type: Optional[str] = None,
         status: Optional[str] = None,
         q: Optional[str] = None,
+        not_connected_to_pp: bool = False,
     ):
         """Apply shared WHERE conditions to any statement."""
         if site_id is not None:
@@ -53,6 +56,27 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
                     Device.primary_ip.ilike(f"%{q}%"),
                 )
             )
+        if not_connected_to_pp:
+            # Interface IDs that belong to patch_panel devices
+            pp_iface_subq = (
+                select(Interface.id)
+                .join(Device, Interface.device_id == Device.id)
+                .where(Device.device_type == 'patch_panel')
+                .scalar_subquery()
+            )
+            # Device IDs that have at least one interface cabled to a PP interface
+            connected_device_ids = (
+                select(Interface.device_id)
+                .join(
+                    Cable,
+                    or_(
+                        and_(Cable.interface_a_id == Interface.id, Cable.interface_b_id.in_(pp_iface_subq)),
+                        and_(Cable.interface_b_id == Interface.id, Cable.interface_a_id.in_(pp_iface_subq)),
+                    ),
+                )
+                .scalar_subquery()
+            )
+            base_stmt = base_stmt.where(Device.id.notin_(connected_device_ids))
         return base_stmt
 
     async def search(
@@ -66,6 +90,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
         exclude_device_type: Optional[str] = None,
         status: Optional[str] = None,
         q: Optional[str] = None,
+        not_connected_to_pp: bool = False,
     ) -> list[Device]:
         stmt = self._build_filter_stmt(
             select(Device).options(selectinload(Device.cabinet)),
@@ -75,6 +100,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
             exclude_device_type=exclude_device_type,
             status=status,
             q=q,
+            not_connected_to_pp=not_connected_to_pp,
         )
         stmt = stmt.offset(skip).limit(limit)
         result = await db.execute(stmt)
@@ -89,6 +115,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
         exclude_device_type: Optional[str] = None,
         status: Optional[str] = None,
         q: Optional[str] = None,
+        not_connected_to_pp: bool = False,
     ) -> int:
         stmt = self._build_filter_stmt(
             select(func.count()).select_from(Device),
@@ -98,6 +125,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
             exclude_device_type=exclude_device_type,
             status=status,
             q=q,
+            not_connected_to_pp=not_connected_to_pp,
         )
         result = await db.execute(stmt)
         return result.scalar_one()

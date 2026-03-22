@@ -649,7 +649,9 @@ export interface DeviceFilters {
   device_type?: DeviceType
   exclude_device_type?: DeviceType
   status?: DeviceStatus
+  q?: string
   search?: string
+  not_connected_to_pp?: boolean
   page?: number
   size?: number
 }

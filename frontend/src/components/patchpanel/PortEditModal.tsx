@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import { patchPanelsApi } from '../../api/patchPanels'
-import { useDevices } from '../../hooks/useDevices'
 import { devicesApi } from '../../api/devices'
+import { useQuery } from '@tanstack/react-query'
 import type { PatchPortDetail, NetworkInterface, Device } from '../../types'
 
 interface PortEditModalProps {
@@ -14,13 +14,27 @@ interface PortEditModalProps {
   onSaved: () => void
 }
 
-type ConnectionTarget = 'none' | 'switch' | 'patch_panel'
+type ConnectionTarget = 'none' | 'switch' | 'patch_panel' | 'device'
 
 /** Estrae il numero porta dal nome (es. "port-5" → 5) */
 function extractPortNumber(name: string): string {
   const m = name.match(/(\d+)$/)
   return m ? m[1] : name
 }
+
+// Device types that are not switch/PP (shown in the "Dispositivo" tab)
+const DEVICE_TYPE_OPTIONS = [
+  { value: '', label: 'Tutti i tipi' },
+  { value: 'server', label: 'Server' },
+  { value: 'workstation', label: 'Workstation' },
+  { value: 'router', label: 'Router' },
+  { value: 'firewall', label: 'Firewall' },
+  { value: 'ap', label: 'Access Point' },
+  { value: 'printer', label: 'Stampante' },
+  { value: 'phone', label: 'Telefono' },
+  { value: 'camera', label: 'Telecamera' },
+  { value: 'other', label: 'Altro' },
+]
 
 const PortEditModal: React.FC<PortEditModalProps> = ({
   isOpen, onClose, port, deviceId, cabinetId, onSaved,
@@ -39,19 +53,61 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
   const [ppPorts, setPpPorts] = useState<PatchPortDetail[]>([])
   const [selectedPpPortId, setSelectedPpPortId] = useState<number | ''>('')
 
+  // Connessione dispositivo
+  const [deviceSearch, setDeviceSearch] = useState('')
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState('')
+  const [onlyAvailable, setOnlyAvailable] = useState(false)
+  const [selectedDeviceId, setSelectedDeviceId] = useState<number | ''>('')
+  const [deviceInterfaces, setDeviceInterfaces] = useState<NetworkInterface[]>([])
+  const [selectedDeviceIfaceId, setSelectedDeviceIfaceId] = useState<number | ''>('')
+
   const [connTarget, setConnTarget] = useState<ConnectionTarget>('none')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Switch: solo quelli nello stesso armadio o senza armadio
-  const { data: allSwitches } = useDevices({ device_type: 'switch', size: 200 })
+  const { data: allSwitches } = useQuery({
+    queryKey: ['devices', 'switch-for-pp'],
+    queryFn: () => devicesApi.list({ device_type: 'switch', size: 200 }),
+    staleTime: 60_000,
+    enabled: isOpen,
+  })
   const switches = (allSwitches?.items ?? []).filter((sw: Device) =>
     sw.cabinet_id === null || sw.cabinet_id === undefined || sw.cabinet_id === cabinetId
   )
 
   // Tutti i patch panel (per connessione cross-armadio)
-  const { data: allPPs } = useDevices({ device_type: 'patch_panel', size: 200 })
+  const { data: allPPs } = useQuery({
+    queryKey: ['devices', 'pp-for-pp'],
+    queryFn: () => devicesApi.list({ device_type: 'patch_panel', size: 200 }),
+    staleTime: 60_000,
+    enabled: isOpen,
+  })
   const otherPPs = (allPPs?.items ?? []).filter((pp: Device) => pp.id !== deviceId)
+
+  // Dispositivi (esclusi switch e patch panel)
+  const { data: devicesData } = useQuery({
+    queryKey: ['devices', 'for-pp-link', deviceTypeFilter, onlyAvailable],
+    queryFn: () => devicesApi.list({
+      size: 500,
+      ...(deviceTypeFilter ? { device_type: deviceTypeFilter as any } : {}),
+      ...(onlyAvailable ? { not_connected_to_pp: true } : {}),
+    }),
+    staleTime: 30_000,
+    enabled: isOpen && connTarget === 'device',
+  })
+
+  // Client-side filter: exclude switches and patch panels, apply text search
+  const filteredDevices = (devicesData?.items ?? []).filter(d => {
+    if (d.device_type === 'switch' || d.device_type === 'patch_panel') return false
+    if (!deviceSearch) return true
+    const q = deviceSearch.toLowerCase()
+    return (
+      d.name.toLowerCase().includes(q) ||
+      (d.primary_ip ?? '').includes(q) ||
+      (d.model ?? '').toLowerCase().includes(q)
+    )
+  })
 
   useEffect(() => {
     if (port) {
@@ -62,8 +118,14 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
       setSelectedSwitchPortId('')
       setSelectedPpId('')
       setSelectedPpPortId('')
+      setSelectedDeviceId('')
+      setSelectedDeviceIfaceId('')
+      setDeviceSearch('')
+      setDeviceTypeFilter('')
+      setOnlyAvailable(false)
       setSwitchInterfaces([])
       setPpPorts([])
+      setDeviceInterfaces([])
       setConnTarget('none')
       setError(null)
     }
@@ -95,6 +157,22 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
     }
   }, [selectedPpId])
 
+  // Carica interfacce dispositivo quando selezionato
+  useEffect(() => {
+    if (selectedDeviceId) {
+      devicesApi.getInterfaces(selectedDeviceId as number)
+        .then(ifaces => {
+          setDeviceInterfaces(ifaces)
+          if (ifaces.length === 1) setSelectedDeviceIfaceId(ifaces[0].id)
+          else setSelectedDeviceIfaceId('')
+        })
+        .catch(() => setDeviceInterfaces([]))
+    } else {
+      setDeviceInterfaces([])
+      setSelectedDeviceIfaceId('')
+    }
+  }, [selectedDeviceId])
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!port) return
@@ -116,6 +194,8 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
         newLinkInterfaceId = Number(selectedSwitchPortId)
       } else if (connTarget === 'patch_panel' && selectedPpPortId) {
         newLinkInterfaceId = Number(selectedPpPortId)
+      } else if (connTarget === 'device' && selectedDeviceIfaceId) {
+        newLinkInterfaceId = Number(selectedDeviceIfaceId)
       }
 
       const oldLinkId = port.linked_interface?.id ?? null
@@ -156,6 +236,13 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
   const currentLinkLabel = port?.linked_interface
     ? `${port.linked_interface.device_name ?? '?'} → ${port.linked_interface.name}`
     : null
+
+  const CONN_TARGETS: { value: ConnectionTarget; label: string }[] = [
+    { value: 'none', label: 'Nessuno' },
+    { value: 'switch', label: 'Switch' },
+    { value: 'patch_panel', label: 'Patch Panel' },
+    { value: 'device', label: 'Dispositivo' },
+  ]
 
   return (
     <Modal
@@ -228,19 +315,19 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {currentLinkLabel ? 'Cambia collegamento' : 'Collega a'}
           </label>
-          <div className="flex gap-2">
-            {(['none', 'switch', 'patch_panel'] as ConnectionTarget[]).map(t => (
+          <div className="flex gap-2 flex-wrap">
+            {CONN_TARGETS.map(t => (
               <button
-                key={t}
+                key={t.value}
                 type="button"
-                onClick={() => setConnTarget(t)}
+                onClick={() => setConnTarget(t.value)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                  connTarget === t
+                  connTarget === t.value
                     ? 'bg-primary-600 text-white border-primary-600'
                     : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
                 }`}
               >
-                {t === 'none' ? 'Nessuno' : t === 'switch' ? 'Switch' : 'Patch Panel'}
+                {t.label}
               </button>
             ))}
           </div>
@@ -330,6 +417,109 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
               <p className="text-xs text-orange-500">Nessuna porta libera disponibile su questo patch panel.</p>
             )}
           </>
+        )}
+
+        {/* Dispositivo selector */}
+        {connTarget === 'device' && (
+          <div className="space-y-3">
+            {/* Filters row */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={deviceSearch}
+                onChange={e => setDeviceSearch(e.target.value)}
+                placeholder="Cerca nome, IP…"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <select
+                value={deviceTypeFilter}
+                onChange={e => { setDeviceTypeFilter(e.target.value); setSelectedDeviceId('') }}
+                className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {DEVICE_TYPE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Disponibile toggle */}
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={onlyAvailable}
+                onChange={e => { setOnlyAvailable(e.target.checked); setSelectedDeviceId('') }}
+                className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-gray-700">
+                Solo disponibili
+                <span className="ml-1 text-xs text-gray-400">(non già connessi a un patch panel)</span>
+              </span>
+            </label>
+
+            {/* Device list */}
+            {filteredDevices.length === 0 ? (
+              <p className="text-xs text-gray-400 py-2 text-center">Nessun dispositivo trovato</p>
+            ) : (
+              <div className="border border-gray-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                {filteredDevices.map(d => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setSelectedDeviceId(d.id === selectedDeviceId ? '' : d.id)}
+                    className={`w-full text-left px-3 py-2 text-sm border-b border-gray-100 last:border-b-0 transition-colors ${
+                      selectedDeviceId === d.id
+                        ? 'bg-primary-50 text-primary-700 font-medium'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <span className="font-medium">{d.name}</span>
+                    {d.primary_ip && <span className="ml-2 text-xs text-gray-400 font-mono">{d.primary_ip}</span>}
+                    {d.device_type && (
+                      <span className="ml-2 text-xs text-gray-400 capitalize">{d.device_type}</span>
+                    )}
+                    {d.cabinet_name && (
+                      <span className="ml-2 text-xs text-gray-400">· {d.cabinet_name}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Interface picker (shown after device selection) */}
+            {selectedDeviceId !== '' && deviceInterfaces.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Interfaccia</label>
+                {deviceInterfaces.length === 1 ? (
+                  <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 font-mono">
+                    {deviceInterfaces[0].name}
+                    {deviceInterfaces[0].mac_address && (
+                      <span className="ml-2 text-xs text-gray-400">{deviceInterfaces[0].mac_address}</span>
+                    )}
+                  </p>
+                ) : (
+                  <select
+                    value={selectedDeviceIfaceId}
+                    onChange={e => setSelectedDeviceIfaceId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">-- Seleziona interfaccia --</option>
+                    {deviceInterfaces.map(iface => (
+                      <option key={iface.id} value={iface.id}>
+                        {iface.name}
+                        {iface.label ? ` — ${iface.label}` : ''}
+                        {iface.mac_address ? ` (${iface.mac_address})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+            {selectedDeviceId !== '' && deviceInterfaces.length === 0 && (
+              <p className="text-xs text-orange-500">
+                Questo dispositivo non ha interfacce configurate.
+              </p>
+            )}
+          </div>
         )}
 
         <div>
