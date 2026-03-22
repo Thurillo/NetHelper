@@ -1,8 +1,7 @@
 [Unit]
 Description=NetHelper – Celery Beat Scheduler (scansioni pianificate)
 Documentation=https://github.com/yourorg/nethelper
-After=network.target redis.service
-Requires=redis.service
+After=network.target redis.service redis-server.service
 
 [Service]
 Type=exec

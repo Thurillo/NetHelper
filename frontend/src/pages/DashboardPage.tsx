@@ -186,10 +186,10 @@ const DashboardPage: React.FC = () => {
               .map(([type, count]) => {
                 const pct = stats.devices_total > 0 ? Math.round((count / stats.devices_total) * 100) : 0
                 const label: Record<string, string> = {
-                  switch: 'Switch', router: 'Router', ap: 'Access Point', server: 'Server',
-                  firewall: 'Firewall', ups: 'UPS', patch_panel: 'Patch Panel',
-                  workstation: 'Workstation', printer: 'Stampante', camera: 'Camera',
-                  phone: 'Telefono', other: 'Altro',
+                  switch: 'Switch', router: 'Router', access_point: 'Access Point', server: 'Server',
+                  patch_panel: 'Patch Panel', pdu: 'PDU', firewall: 'Firewall', ups: 'UPS',
+                  unmanaged_switch: 'Switch non gestito', workstation: 'Workstation',
+                  printer: 'Stampante', camera: 'Camera', phone: 'Telefono', other: 'Altro',
                 }
                 return (
                   <div key={type}>

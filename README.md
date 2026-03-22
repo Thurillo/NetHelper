@@ -24,8 +24,12 @@ NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e
 |------|-----------|
 | 🔍 **Discovery** | Scansione SNMP (v2c/v3) e SSH — interfacce, MAC address, ARP, LLDP/CDP |
 | 🌐 **Scan IP range** | Ping sweep + TCP port check su range IP personalizzato |
+| 📦 **Importazione massiva** | Selezione multipla degli host scoperti → import bulk con tipo, armadio e vendor per riga |
+| 🔑 **Credenziali per dispositivo** | SNMP community/v3 e SSH username/password configurabili per singolo dispositivo (override vendor) |
 | 🗄️ **Inventario** | Dispositivi, interfacce, cavi, indirizzi IP e MAC inseribili anche manualmente |
-| 🏗️ **Armadi rack** | Diagramma visuale drag-and-drop, configurazione U personalizzabile |
+| 📊 **Dashboard** | Statistiche, grafici dispositivi per tipo/stato, ultime scan e conflitti in attesa |
+| 🔎 **Ricerca globale** | Barra di ricerca ⌘K per trovare qualsiasi dispositivo per nome, IP o MAC |
+| 🏗️ **Armadi rack** | Diagramma visuale con colori per tipo dispositivo |
 | 🔌 **Patch panel** | Panel virtuali con etichette porte personalizzate e stanza di destinazione |
 | 🗺️ **Topologia** | Mappa force-directed dei collegamenti tra dispositivi |
 | 📡 **VLAN** | Gestione VLAN con collegamento a interfacce e prefissi |
@@ -33,8 +37,11 @@ NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e
 | ⚠️ **Conflitti** | Scansioni periodiche generano conflitti da accettare/rifiutare — nessuna scrittura automatica |
 | 🕵️ **Switch non gestiti** | Rilevamento automatico porte con ≥3 MAC (probabile switch non gestito) |
 | 📜 **Audit log** | Ogni modifica tracciata con utente, timestamp, campo e valore precedente |
+| 📥 **Export CSV** | Esportazione inventario dispositivi con filtri attivi |
+| 🔔 **Notifiche** | Toast automatici al completamento o fallimento di ogni scan |
 | 🔐 **Autenticazione** | JWT con ruoli **Admin** (lettura/scrittura) e **Sola lettura** |
 | 🤖 **REST API** | Tutte le funzionalità esposte via API — compatibile con n8n e Telegram bot |
+| 📖 **Guida integrata** | Documentazione d'uso disponibile direttamente nell'interfaccia web |
 
 ---
 
@@ -256,16 +263,22 @@ Aprendo un armadio si visualizza il **diagramma rack** interattivo:
 
 Un dispositivo rappresenta qualsiasi apparato fisico in rete.
 
+**Tipi dispositivo supportati:**
+`switch` · `router` · `access_point` · `server` · `patch_panel` · `pdu` · `firewall` · `ups` · `unmanaged_switch` · `workstation` · `printer` · `camera` · `phone` · `other`
+
 **Campi principali:**
 | Campo | Descrizione |
 |-------|-------------|
-| Tipo | Switch, Router, Access Point, Server, Patch Panel, PDU… |
+| Tipo | Switch, Router, Access Point, Server, Patch Panel, PDU, Firewall, UPS… |
 | IP primario | Indirizzo di management per le scansioni |
 | Vendor | Profilo vendor con credenziali SNMP/SSH predefinite |
 | SNMP community | Override per questo dispositivo (v2c o v3) |
-| Credenziali SSH | Username/password o chiave privata |
+| SNMPv3 | Username, auth protocol/password, priv protocol/password |
+| Credenziali SSH | Username/password o chiave privata, porta |
 | Posizione U | Slot nell'armadio |
 | Altezza | Numero di U occupate |
+
+> Le credenziali per dispositivo si impostano nella modale Modifica → sezione collassabile **Credenziali SNMP/SSH**. Sovrascrivono i default del vendor.
 
 **Scheda dispositivo — Tab disponibili:**
 - **Interfacce** — tutte le porte fisiche con MAC, VLAN, velocità, stato
@@ -313,6 +326,17 @@ Qualsiasi switch che supporta **SNMP v2c + LLDP standard** funziona con il drive
 2. Inserire **IP iniziale** e **IP finale** (es. `192.168.1.1` → `192.168.1.254`)
 3. Opzionale: specificare le **porte TCP** da verificare (default: 22, 80, 443)
 4. Cliccare **Avvia**
+
+#### Importazione massiva dagli host scoperti
+
+Dopo una scansione IP Range, nella tabella **Host trovati**:
+1. Selezionare uno o più host con le **checkbox** (o _Seleziona tutti_)
+2. Cliccare **Importa selezionati (N)** — compare il bottone quando N > 0
+3. Nella modale: impostare tipo, armadio e vendor per ogni riga (o applicare globalmente)
+4. Cliccare **Importa N dispositivi**
+5. Il sistema crea i dispositivi, salta i duplicati (per IP) e mostra il riepilogo
+
+---
 
 #### Scansioni pianificate
 
@@ -432,12 +456,15 @@ curl http://<IP>/api/v1/devices \
 
 ```bash
 GET  /api/v1/devices?status=active           # lista dispositivi attivi
+GET  /api/v1/devices?device_type=switch      # filtra per tipo
 GET  /api/v1/devices/5/mac-entries           # MAC visti su un dispositivo
 GET  /api/v1/conflicts?status=pending        # conflitti in attesa
 POST /api/v1/devices/5/scan                  # avvia scansione SNMP
      body: {"scan_type": "snmp_full"}
 POST /api/v1/scan-jobs/ip-range              # ping sweep
      body: {"start_ip": "192.168.1.1", "end_ip": "192.168.1.254"}
+POST /api/v1/devices/bulk                    # import massivo da scan
+     body: {"devices": [{"name": "...", "primary_ip": "...", "device_type": "server"}], "skip_duplicates": true}
 GET  /api/v1/prefixes/1/utilization          # utilizzo prefisso IP
 GET  /api/v1/dashboard/stats                 # statistiche dashboard
 ```

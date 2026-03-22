@@ -14,11 +14,13 @@ import type { Cabinet, CabinetCreate } from '../types'
 const DEVICE_TYPE_LABELS: Record<string, string> = {
   switch: 'Switch',
   router: 'Router',
-  ap: 'AP',
+  access_point: 'AP',
   server: 'Server',
   patch_panel: 'Patch Panel',
+  pdu: 'PDU',
   firewall: 'Firewall',
   ups: 'UPS',
+  unmanaged_switch: 'Switch NG',
   workstation: 'Workstation',
   printer: 'Stampante',
   camera: 'Telecamera',
@@ -30,11 +32,13 @@ const DEVICE_TYPE_LABELS: Record<string, string> = {
 const DEVICE_TYPE_COLORS: Record<string, string> = {
   switch: 'bg-blue-100 text-blue-700',
   router: 'bg-green-100 text-green-700',
-  ap: 'bg-purple-100 text-purple-700',
+  access_point: 'bg-purple-100 text-purple-700',
   server: 'bg-orange-100 text-orange-700',
   patch_panel: 'bg-gray-100 text-gray-600',
+  pdu: 'bg-yellow-100 text-yellow-700',
   firewall: 'bg-red-100 text-red-700',
   ups: 'bg-yellow-100 text-yellow-700',
+  unmanaged_switch: 'bg-indigo-100 text-indigo-700',
   workstation: 'bg-teal-100 text-teal-700',
   printer: 'bg-pink-100 text-pink-700',
   camera: 'bg-indigo-100 text-indigo-700',
@@ -63,7 +67,7 @@ const CabinetCard: React.FC<CabinetCardProps> = ({ cabinet, onEdit, isAdmin }) =
     'bg-gray-200'
 
   // Sort device types: switches first, patch panels last, rest in between
-  const ORDER = ['switch', 'router', 'firewall', 'access_point', 'server', 'workstation', 'ups', 'printer', 'camera', 'phone', 'other', 'patch_panel']
+  const ORDER = ['switch', 'router', 'firewall', 'access_point', 'server', 'unmanaged_switch', 'workstation', 'ups', 'pdu', 'printer', 'camera', 'phone', 'other', 'patch_panel']
   const sortedTypes = Object.entries(summary).sort(
     ([a], [b]) => (ORDER.indexOf(a) ?? 99) - (ORDER.indexOf(b) ?? 99)
   )

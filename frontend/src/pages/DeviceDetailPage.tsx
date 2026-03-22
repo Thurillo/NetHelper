@@ -19,7 +19,7 @@ import type { NetworkInterface, IpAddress, MacEntry, ScanJob, DeviceStatus, Devi
 
 type TabKey = 'interfacce' | 'ip' | 'mac' | 'scansioni'
 
-const DEVICE_TYPES: DeviceType[] = ['switch', 'router', 'access_point', 'server', 'firewall', 'ups', 'workstation', 'printer', 'camera', 'phone', 'other']
+const DEVICE_TYPES: DeviceType[] = ['switch', 'router', 'access_point', 'server', 'patch_panel', 'pdu', 'firewall', 'ups', 'unmanaged_switch', 'workstation', 'printer', 'camera', 'phone', 'other']
 const DEVICE_STATUSES: DeviceStatus[] = ['active', 'inactive', 'planned', 'decommissioned']
 
 const DeviceDetailPage: React.FC = () => {

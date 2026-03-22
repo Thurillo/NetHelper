@@ -7,8 +7,10 @@ const deviceTypes: { type: DeviceType; label: string; color: string }[] = [
   { type: 'access_point', label: 'Access Point', color: 'bg-purple-500' },
   { type: 'server', label: 'Server', color: 'bg-orange-500' },
   { type: 'patch_panel', label: 'Patch Panel', color: 'bg-gray-400' },
+  { type: 'pdu', label: 'PDU', color: 'bg-yellow-500' },
   { type: 'firewall', label: 'Firewall', color: 'bg-red-500' },
   { type: 'ups', label: 'UPS', color: 'bg-yellow-500' },
+  { type: 'unmanaged_switch', label: 'Switch NG', color: 'bg-indigo-500' },
   { type: 'workstation', label: 'Workstation', color: 'bg-teal-500' },
   { type: 'other', label: 'Altro', color: 'bg-gray-500' },
 ]

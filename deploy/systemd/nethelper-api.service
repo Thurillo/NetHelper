@@ -1,8 +1,7 @@
 [Unit]
 Description=NetHelper – FastAPI Backend (Uvicorn)
 Documentation=https://github.com/yourorg/nethelper
-After=network.target postgresql.service redis.service
-Requires=postgresql.service redis.service
+After=network.target postgresql.service redis.service redis-server.service
 
 [Service]
 Type=exec

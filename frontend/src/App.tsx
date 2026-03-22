@@ -23,6 +23,7 @@ import UsersPage from './pages/UsersPage'
 import VendorsPage from './pages/VendorsPage'
 import ConnectionsPage from './pages/ConnectionsPage'
 import BackupPage from './pages/BackupPage'
+import GuidaPage from './pages/GuidaPage'
 
 const App: React.FC = () => {
   return (
@@ -50,6 +51,7 @@ const App: React.FC = () => {
         <Route path="utenti" element={<UsersPage />} />
         <Route path="vendor" element={<VendorsPage />} />
         <Route path="backup" element={<BackupPage />} />
+        <Route path="guida" element={<GuidaPage />} />
       </Route>
     </Routes>
   )

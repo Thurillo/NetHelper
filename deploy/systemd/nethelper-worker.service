@@ -1,8 +1,7 @@
 [Unit]
 Description=NetHelper – Celery Worker (scansioni SNMP/SSH/IP Range)
 Documentation=https://github.com/yourorg/nethelper
-After=network.target redis.service postgresql.service
-Requires=redis.service postgresql.service
+After=network.target redis.service redis-server.service postgresql.service
 
 [Service]
 Type=exec
