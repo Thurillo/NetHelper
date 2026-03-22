@@ -303,7 +303,7 @@ const ConnectionRow: React.FC<{ path: ConnectionPath; onEdit?: () => void; onDel
       {/* Switch C */}
       <td className="px-4 py-3">
         {path.switch_id ? (
-          <Link to={`/dispositivi/${path.switch_id}`} className="font-medium text-gray-900 hover:text-primary-600">
+          <Link to={`/switch?expand=${path.switch_id}`} className="font-medium text-gray-900 hover:text-primary-600">
             {path.switch_name}
           </Link>
         ) : (

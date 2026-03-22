@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Edit2, Link, Network, ArrowUpDown, Plus, Server } from 'lucide-react'
 import { devicesApi } from '../api/devices'
 import { interfacesApi } from '../api/interfaces'
@@ -517,11 +518,18 @@ const SwitchExpanded: React.FC<{
 
 // ─── Switch card ──────────────────────────────────────────────────────────────
 
-const SwitchCard: React.FC<{ sw: Device }> = ({ sw }) => {
-  const [expanded, setExpanded] = useState(false)
+const SwitchCard: React.FC<{ sw: Device; initialExpanded?: boolean }> = ({ sw, initialExpanded = false }) => {
+  const [expanded, setExpanded] = useState(initialExpanded)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (initialExpanded && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [initialExpanded])
 
   return (
-    <div className={`bg-white rounded-xl border transition-all ${
+    <div ref={cardRef} className={`bg-white rounded-xl border transition-all ${
       expanded ? 'border-primary-300 shadow-sm col-span-full' : 'border-gray-200 hover:border-primary-200 hover:shadow-sm'
     }`}>
       <button
@@ -571,6 +579,8 @@ const SwitchesPage: React.FC = () => {
   const [vendorModalOpen, setVendorModalOpen] = useState(false)
   const [vendorAdded, setVendorAdded] = useState<string | null>(null)
   const [cabinetFilter, setCabinetFilter] = useState<string>('')
+  const [searchParams] = useSearchParams()
+  const expandId = searchParams.get('expand') ? Number(searchParams.get('expand')) : null
 
   const { data, isLoading } = useQuery({
     queryKey: ['switches-all'],
@@ -663,7 +673,7 @@ const SwitchesPage: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {group.switches.map(sw => (
-                  <SwitchCard key={sw.id} sw={sw} />
+                  <SwitchCard key={sw.id} sw={sw} initialExpanded={sw.id === expandId} />
                 ))}
               </div>
             </div>
