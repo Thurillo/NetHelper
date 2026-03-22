@@ -180,7 +180,18 @@
       "Bash(ssh root@192.168.1.3 \"systemctl list-units --type=service | grep -i nethelper\")",
       "Bash(ssh root@192.168.1.3 \"systemctl restart nethelper-backend\")",
       "Bash(ssh root@192.168.1.3 \"cd /opt/nethelper && git pull && systemctl restart nethelper-backend\")",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(ssh nethelper@192.168.1.3 \"cd /opt/nethelper && git pull && source venv/bin/activate && pip install -q -r requirements.txt && cd frontend && npm ci --silent && npm run build 2>&1 | tail -5 && sudo systemctl restart nethelper nethelper-celery 2>&1\")",
+      "Bash(ssh -i ~/.ssh/id_rsa nethelper@192.168.1.3 \"echo ok\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 nethelper@192.168.1.3 \"echo ok\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 admin@192.168.1.3 \"echo ok\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 root@192.168.1.3 \"cd /opt/nethelper && git pull && cd frontend && npm run build 2>&1 | tail -8 && sudo systemctl restart nethelper nethelper-celery 2>&1 | tail -5\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 root@192.168.1.3 \"systemctl restart nethelper nethelper-celery && systemctl is-active nethelper nethelper-celery\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 root@192.168.1.3 \"systemctl list-units --type=service | grep -i nethelper 2>&1 || ls /etc/systemd/system/ | grep -i net\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 root@192.168.1.3 \"systemctl restart nethelper-backend nethelper-worker nethelper-beat && sleep 2 && systemctl is-active nethelper-backend nethelper-worker nethelper-beat\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 root@192.168.1.3 \"curl -s http://localhost:8000/openapi.json | python3 -c \"\"import sys,json; paths=json.load\\(sys.stdin\\)[''paths'']; print\\([p for p in paths if ''bulk'' in p]\\)\"\"\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 root@192.168.1.3 \"curl -s http://localhost:8000/api/openapi.json 2>&1 | python3 -c \"\"import sys,json; d=json.load\\(sys.stdin\\); print\\([p for p in d.get\\(''paths'',{}\\) if ''bulk'' in p]\\)\"\"\")",
+      "Bash(grep -v \"//.*''''ap''''\")"
     ]
   }
 }

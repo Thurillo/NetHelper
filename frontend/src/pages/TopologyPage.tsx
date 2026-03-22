@@ -7,7 +7,7 @@ import TopologyGraph from '../components/topology/TopologyGraph'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../components/common/Badge'
 import type { DeviceType, TopologyNode } from '../types'
 
-const DEVICE_TYPES: DeviceType[] = ['switch', 'router', 'ap', 'server', 'firewall']
+const DEVICE_TYPES: DeviceType[] = ['switch', 'router', 'access_point', 'server', 'firewall']
 
 const TopologyPage: React.FC = () => {
   const navigate = useNavigate()

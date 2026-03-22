@@ -142,7 +142,7 @@ export interface RackDiagram {
 export type DeviceType =
   | 'switch'
   | 'router'
-  | 'ap'
+  | 'access_point'
   | 'server'
   | 'patch_panel'
   | 'firewall'

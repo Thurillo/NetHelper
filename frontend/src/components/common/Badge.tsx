@@ -66,7 +66,7 @@ export const DeviceTypeBadge: React.FC<{ type: DeviceType }> = ({ type }) => {
   const config: Record<DeviceType, { label: string; variant: BadgeVariant }> = {
     switch: { label: 'Switch', variant: 'blue' },
     router: { label: 'Router', variant: 'green' },
-    ap: { label: 'Access Point', variant: 'purple' },
+    access_point: { label: 'Access Point', variant: 'purple' },
     server: { label: 'Server', variant: 'orange' },
     patch_panel: { label: 'Patch Panel', variant: 'gray' },
     firewall: { label: 'Firewall', variant: 'red' },

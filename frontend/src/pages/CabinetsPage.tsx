@@ -63,7 +63,7 @@ const CabinetCard: React.FC<CabinetCardProps> = ({ cabinet, onEdit, isAdmin }) =
     'bg-gray-200'
 
   // Sort device types: switches first, patch panels last, rest in between
-  const ORDER = ['switch', 'router', 'firewall', 'ap', 'server', 'workstation', 'ups', 'printer', 'camera', 'phone', 'other', 'patch_panel']
+  const ORDER = ['switch', 'router', 'firewall', 'access_point', 'server', 'workstation', 'ups', 'printer', 'camera', 'phone', 'other', 'patch_panel']
   const sortedTypes = Object.entries(summary).sort(
     ([a], [b]) => (ORDER.indexOf(a) ?? 99) - (ORDER.indexOf(b) ?? 99)
   )

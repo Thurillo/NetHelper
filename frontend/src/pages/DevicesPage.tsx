@@ -20,7 +20,7 @@ import { it } from 'date-fns/locale'
 import type { Device, DeviceCreate, DeviceType, DeviceStatus, DeviceFilters } from '../types'
 
 // Patch panel are managed via the dedicated Patch Panel section
-const DEVICE_TYPES: DeviceType[] = ['switch', 'router', 'ap', 'server', 'firewall', 'ups', 'workstation', 'printer', 'camera', 'phone', 'other']
+const DEVICE_TYPES: DeviceType[] = ['switch', 'router', 'access_point', 'server', 'firewall', 'ups', 'workstation', 'printer', 'camera', 'phone', 'other']
 
 /** Convert any MAC to Cisco XXXX.XXXX.XXXX for display purposes. */
 function macToCisco(mac: string): string {

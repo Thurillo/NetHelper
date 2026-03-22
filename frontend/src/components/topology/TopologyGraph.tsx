@@ -8,7 +8,7 @@ import { GitBranch, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 const deviceColors: Record<DeviceType, string> = {
   switch: '#3b82f6',
   router: '#22c55e',
-  ap: '#a855f7',
+  access_point: '#a855f7',
   server: '#f97316',
   patch_panel: '#9ca3af',
   firewall: '#ef4444',

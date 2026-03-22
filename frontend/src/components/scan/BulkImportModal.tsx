@@ -19,7 +19,7 @@ interface BulkRow extends DeviceBulkCreateItem {
   _vendor_hint: string | null
 }
 
-const DEVICE_TYPES: DeviceType[] = ['server', 'workstation', 'printer', 'camera', 'phone', 'ap', 'other']
+const DEVICE_TYPES: DeviceType[] = ['server', 'workstation', 'printer', 'camera', 'phone', 'access_point', 'other']
 
 interface Props {
   hosts: FoundHost[]

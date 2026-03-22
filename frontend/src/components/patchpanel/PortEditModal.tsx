@@ -29,7 +29,7 @@ const DEVICE_TYPE_OPTIONS = [
   { value: 'workstation', label: 'Workstation' },
   { value: 'router', label: 'Router' },
   { value: 'firewall', label: 'Firewall' },
-  { value: 'ap', label: 'Access Point' },
+  { value: 'access_point', label: 'Access Point' },
   { value: 'printer', label: 'Stampante' },
   { value: 'phone', label: 'Telefono' },
   { value: 'camera', label: 'Telecamera' },

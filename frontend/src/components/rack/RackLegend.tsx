@@ -4,7 +4,7 @@ import type { DeviceType } from '../../types'
 const deviceTypes: { type: DeviceType; label: string; color: string }[] = [
   { type: 'switch', label: 'Switch', color: 'bg-blue-500' },
   { type: 'router', label: 'Router', color: 'bg-green-500' },
-  { type: 'ap', label: 'Access Point', color: 'bg-purple-500' },
+  { type: 'access_point', label: 'Access Point', color: 'bg-purple-500' },
   { type: 'server', label: 'Server', color: 'bg-orange-500' },
   { type: 'patch_panel', label: 'Patch Panel', color: 'bg-gray-400' },
   { type: 'firewall', label: 'Firewall', color: 'bg-red-500' },
