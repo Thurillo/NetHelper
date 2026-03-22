@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, Edit2, Link, Network, ArrowUpDown, Plus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Edit2, Link, Network, ArrowUpDown, Plus, Server } from 'lucide-react'
 import { devicesApi } from '../api/devices'
 import { interfacesApi } from '../api/interfaces'
 import { switchesApi, type SwitchPortUpdateBody } from '../api/switches'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
-import Pagination from '../components/common/Pagination'
 import QuickAddVendorModal from '../components/common/QuickAddVendorModal'
 import type { Device, SwitchPortDetail, NetworkInterface } from '../types'
 
@@ -513,17 +512,40 @@ const SwitchCard: React.FC<{ sw: Device }> = ({ sw }) => {
   )
 }
 
+// ─── Cabinet group type ───────────────────────────────────────────────────────
+
+interface CabinetGroup {
+  cabinetId: number | null
+  cabinetName: string | null
+  switches: Device[]
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const SwitchesPage: React.FC = () => {
-  const [page, setPage] = useState(1)
   const [vendorModalOpen, setVendorModalOpen] = useState(false)
   const [vendorAdded, setVendorAdded] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['switches', page],
-    queryFn: () => devicesApi.list({ device_type: 'switch', page, size: 20 }),
+    queryKey: ['switches-all'],
+    queryFn: () => devicesApi.list({ device_type: 'switch', page: 1, size: 500 }),
     staleTime: 30_000,
+  })
+
+  // Group by cabinet
+  const groups: CabinetGroup[] = []
+  for (const sw of data?.items ?? []) {
+    const existing = groups.find(g => g.cabinetId === (sw.cabinet_id ?? null))
+    if (existing) {
+      existing.switches.push(sw)
+    } else {
+      groups.push({ cabinetId: sw.cabinet_id ?? null, cabinetName: sw.cabinet_name ?? null, switches: [sw] })
+    }
+  }
+  groups.sort((a, b) => {
+    if (a.cabinetName === null) return 1
+    if (b.cabinetName === null) return -1
+    return a.cabinetName.localeCompare(b.cabinetName)
   })
 
   return (
@@ -532,7 +554,7 @@ const SwitchesPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Switch</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {data ? `${data.total} switch` : 'Gestisci le porte degli switch'}
+            {data ? `${data.total} switch in ${groups.length} armadi` : 'Gestisci le porte degli switch'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -566,16 +588,25 @@ const SwitchesPage: React.FC = () => {
           description="Aggiungi dispositivi di tipo 'Switch' per gestirli qui."
         />
       ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {data?.items.map(sw => (
-              <SwitchCard key={sw.id} sw={sw} />
-            ))}
-          </div>
-          {data && (
-            <Pagination page={page} pages={data.pages} total={data.total} size={data.size} onPageChange={setPage} />
-          )}
-        </>
+        <div className="space-y-8">
+          {groups.map(group => (
+            <div key={group.cabinetId ?? 'none'} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Server size={15} className="text-gray-400 flex-shrink-0" />
+                <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                  {group.cabinetName ?? 'Senza armadio'}
+                </h2>
+                <span className="text-xs text-gray-400">({group.switches.length})</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {group.switches.map(sw => (
+                  <SwitchCard key={sw.id} sw={sw} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
