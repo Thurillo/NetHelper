@@ -73,17 +73,25 @@ const SwitchPortEditModal: React.FC<{
   const [speedMbps, setSpeedMbps] = useState('')
   const [linkMode, setLinkMode] = useState<'keep' | 'unlink' | 'new'>('keep')
   const [targetIfaceId, setTargetIfaceId] = useState<number | null>(null)
+  const [targetDeviceId, setTargetDeviceId] = useState<number | ''>('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: allIfaces } = useQuery<NetworkInterface[]>({
-    queryKey: ['all-interfaces-for-link'],
-    queryFn: async () => {
-      const res = await interfacesApi.list({ size: 500 })
-      return res.items
-    },
+  const { data: allDevices } = useQuery({
+    queryKey: ['devices-for-link'],
+    queryFn: () => devicesApi.list({ size: 500, exclude_device_type: 'patch_panel' }),
     enabled: isOpen,
     staleTime: 60_000,
+  })
+
+  const { data: targetDeviceIfaces } = useQuery<NetworkInterface[]>({
+    queryKey: ['ifaces-for-link', targetDeviceId],
+    queryFn: async () => {
+      const res = await interfacesApi.list({ device_id: targetDeviceId as number, size: 200 })
+      return res.items
+    },
+    enabled: isOpen && !!targetDeviceId,
+    staleTime: 30_000,
   })
 
   const { data: vlans } = useQuery({
@@ -103,6 +111,7 @@ const SwitchPortEditModal: React.FC<{
       setSpeedMbps(port.interface.speed_mbps != null ? String(port.interface.speed_mbps) : '')
       setLinkMode('keep')
       setTargetIfaceId(null)
+      setTargetDeviceId('')
       setError(null)
     }
   }, [port, isOpen])
@@ -141,7 +150,6 @@ const SwitchPortEditModal: React.FC<{
     }
   }
 
-  const otherIfaces = allIfaces?.filter(i => i.id !== port.interface.id) ?? []
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -268,18 +276,43 @@ const SwitchPortEditModal: React.FC<{
             </div>
 
             {linkMode === 'new' && (
-              <select
-                value={targetIfaceId ?? ''}
-                onChange={e => setTargetIfaceId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              >
-                <option value="">— Seleziona interfaccia —</option>
-                {otherIfaces.map(i => (
-                  <option key={i.id} value={i.id}>
-                    {i.device_id} / {i.name}{i.label ? ` (${i.label})` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2 pt-1">
+                {/* Step 1: pick device */}
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Dispositivo</label>
+                  <select
+                    value={targetDeviceId}
+                    onChange={e => { setTargetDeviceId(e.target.value ? Number(e.target.value) : ''); setTargetIfaceId(null) }}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+                  >
+                    <option value="">— seleziona dispositivo —</option>
+                    {(allDevices?.items ?? []).filter(d => d.id !== deviceId).map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.notes || d.name}{d.primary_ip ? ` · ${d.primary_ip}` : ''}
+                        {d.cabinet_name ? ` · ${d.cabinet_name}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* Step 2: pick interface */}
+                {targetDeviceId && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Interfaccia</label>
+                    <select
+                      value={targetIfaceId ?? ''}
+                      onChange={e => setTargetIfaceId(e.target.value ? parseInt(e.target.value) : null)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+                    >
+                      <option value="">— seleziona interfaccia —</option>
+                      {(targetDeviceIfaces ?? []).map(i => (
+                        <option key={i.id} value={i.id}>
+                          {i.name}{i.label ? ` — ${i.label}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
