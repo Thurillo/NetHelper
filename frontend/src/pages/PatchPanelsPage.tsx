@@ -1,10 +1,9 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, Edit2, Grid3X3, Link } from 'lucide-react'
+import { ChevronDown, ChevronUp, Edit2, Grid3X3, Link, Server } from 'lucide-react'
 import { patchPanelsApi } from '../api/patchPanels'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import EmptyState from '../components/common/EmptyState'
-import Pagination from '../components/common/Pagination'
 import PortEditModal from '../components/patchpanel/PortEditModal'
 import type { Device, PatchPortDetail } from '../types'
 
@@ -253,23 +252,46 @@ const PatchPanelCard: React.FC<{ pp: Device }> = ({ pp }) => {
   )
 }
 
+// ─── Cabinet group ────────────────────────────────────────────────────────────
+
+interface CabinetGroup {
+  cabinetId: number | null
+  cabinetName: string | null
+  pps: Device[]
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 const PatchPanelsPage: React.FC = () => {
-  const [page, setPage] = useState(1)
-
   const { data, isLoading } = useQuery({
-    queryKey: ['patch-panels', page],
-    queryFn: () => patchPanelsApi.list({ page, size: 20 }),
+    queryKey: ['patch-panels-all'],
+    queryFn: () => patchPanelsApi.list({ page: 1, size: 500 }),
     staleTime: 30_000,
   })
 
+  // Group by cabinet, preserving order of first appearance
+  const groups: CabinetGroup[] = []
+  for (const pp of data?.items ?? []) {
+    const existing = groups.find(g => g.cabinetId === (pp.cabinet_id ?? null))
+    if (existing) {
+      existing.pps.push(pp)
+    } else {
+      groups.push({ cabinetId: pp.cabinet_id ?? null, cabinetName: pp.cabinet_name ?? null, pps: [pp] })
+    }
+  }
+  // Sort: cabinets with a name first (alphabetically), then "Senza armadio"
+  groups.sort((a, b) => {
+    if (a.cabinetName === null) return 1
+    if (b.cabinetName === null) return -1
+    return a.cabinetName.localeCompare(b.cabinetName)
+  })
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Patch Panel</h1>
         <p className="text-sm text-gray-500 mt-1">
-          {data ? `${data.total} patch panel` : 'Gestisci le porte dei patch panel'}
+          {data ? `${data.total} patch panel in ${groups.length} armadi` : 'Gestisci le porte dei patch panel'}
         </p>
       </div>
 
@@ -282,16 +304,28 @@ const PatchPanelsPage: React.FC = () => {
           description="Aggiungi dispositivi di tipo 'Patch Panel' per gestirli qui."
         />
       ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {data?.items.map(pp => (
-              <PatchPanelCard key={pp.id} pp={pp} />
-            ))}
-          </div>
-          {data && (
-            <Pagination page={page} pages={data.pages} total={data.total} size={data.size} onPageChange={setPage} />
-          )}
-        </>
+        <div className="space-y-8">
+          {groups.map(group => (
+            <div key={group.cabinetId ?? 'none'} className="space-y-3">
+              {/* Cabinet header */}
+              <div className="flex items-center gap-2">
+                <Server size={15} className="text-gray-400 flex-shrink-0" />
+                <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                  {group.cabinetName ?? 'Senza armadio'}
+                </h2>
+                <span className="text-xs text-gray-400">({group.pps.length})</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              {/* PP cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {group.pps.map(pp => (
+                  <PatchPanelCard key={pp.id} pp={pp} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
