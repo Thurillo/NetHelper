@@ -54,6 +54,9 @@ OID_CDP_CACHE_DEVICE_ID = "1.3.6.1.4.1.9.9.23.1.2.1.1.6"
 OID_CDP_CACHE_DEVICE_PORT = "1.3.6.1.4.1.9.9.23.1.2.1.1.7"
 OID_CDP_CACHE_PLATFORM = "1.3.6.1.4.1.9.9.23.1.2.1.1.8"
 
+# BRIDGE-MIB: bridge port → ifIndex mapping
+OID_DOT1D_BASE_PORT_IF_INDEX = "1.3.6.1.2.1.17.1.4.1.2"
+
 # Cisco VLAN (vtpVlanTable)
 OID_VTP_VLAN_STATE = "1.3.6.1.4.1.9.9.46.1.3.1.1.2"
 
@@ -253,6 +256,21 @@ class SNMPCollector:
                 "remote_address": str(addr_data.get(f"{OID_CDP_CACHE_ADDRESS}.{idx}") or ""),
             })
         return entries
+
+    async def collect_bridge_port_map(self, client: SNMPClient) -> dict[int, int]:
+        """Return {bridge_port_number: if_index} from dot1dBasePortIfIndex."""
+        try:
+            data = await client.bulk_walk(OID_DOT1D_BASE_PORT_IF_INDEX)
+        except Exception:
+            return {}
+        result = {}
+        for oid, val in data.items():
+            try:
+                bridge_port = int(_oid_last_n(oid, 1))
+                result[bridge_port] = int(val)
+            except (ValueError, TypeError):
+                pass
+        return result
 
     async def collect_vlans(self, client: SNMPClient) -> list[int]:
         """Collect active VLAN IDs from Cisco vtpVlanTable."""

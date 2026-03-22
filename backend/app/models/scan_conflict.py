@@ -33,6 +33,7 @@ class ConflictType(str, enum.Enum):
     new_device_discovered = "new_device_discovered"
     changed_hostname = "changed_hostname"
     duplicate_device = "duplicate_device"
+    port_cable_conflict = "port_cable_conflict"
     other = "other"
 
 

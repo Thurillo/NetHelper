@@ -21,6 +21,7 @@ import ConflictsPage from './pages/ConflictsPage'
 import AuditLogPage from './pages/AuditLogPage'
 import UsersPage from './pages/UsersPage'
 import VendorsPage from './pages/VendorsPage'
+import ConnectionsPage from './pages/ConnectionsPage'
 
 const App: React.FC = () => {
   return (
@@ -36,6 +37,7 @@ const App: React.FC = () => {
         <Route path="topologia" element={<TopologyPage />} />
         <Route path="patch-panel" element={<PatchPanelsPage />} />
         <Route path="switch" element={<SwitchesPage />} />
+        <Route path="connessioni" element={<ConnectionsPage />} />
         <Route path="patch-panel/:id" element={<PatchPanelDetailPage />} />
         <Route path="vlan" element={<VlansPage />} />
         <Route path="prefissi" element={<PrefixesPage />} />

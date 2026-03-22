@@ -90,6 +90,7 @@ def create_app() -> FastAPI:
         cabinets,
         cables,
         conflicts,
+        connections,
         dashboard,
         devices,
         interfaces,
@@ -128,6 +129,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router, prefix=api_prefix)
     app.include_router(patch_panels.router, prefix=api_prefix)
     app.include_router(switches.router, prefix=api_prefix)
+    app.include_router(connections.router, prefix=api_prefix)
 
     # ----------------------------------------------------------------
     # Health check

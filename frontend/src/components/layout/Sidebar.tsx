@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, MapPin, Server, Network, GitBranch, Grid3X3,
   Layers, Globe, Scan, Clock, AlertTriangle, History, Users,
-  Building2, LogOut, ChevronLeft, ChevronRight, Wifi
+  Building2, LogOut, ChevronLeft, ChevronRight, Wifi, Cable
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'
@@ -29,6 +29,7 @@ const mainNav: NavItem[] = [
 const networkNav: NavItem[] = [
   { to: '/switch',       icon: <Network size={17} />,  label: 'Switch' },
   { to: '/patch-panel',  icon: <Grid3X3 size={17} />,  label: 'Patch Panel' },
+  { to: '/connessioni',  icon: <Cable size={17} />,    label: 'Connessioni' },
   { to: '/vlan',         icon: <Layers size={17} />,   label: 'VLAN' },
   { to: '/prefissi',     icon: <Globe size={17} />,    label: 'Prefissi IP' },
 ]

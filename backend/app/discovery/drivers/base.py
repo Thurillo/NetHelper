@@ -17,6 +17,7 @@ class CollectedData:
     neighbors: list[dict] = field(default_factory=list)
     system_info: dict = field(default_factory=dict)
     vlans: list[int] = field(default_factory=list)
+    bridge_port_map: dict[int, int] = field(default_factory=dict)  # bridge_port → if_index
 
 
 class BaseDriver(ABC):

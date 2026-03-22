@@ -141,6 +141,7 @@ def run_device_scan(self, device_id: int, scan_job_id: int, scan_type: str) -> d
                     if scan_type_enum in (ScanType.snmp_full, ScanType.snmp_mac):
                         await crud_scan_job.append_log(db, scan_job_id, "Collecting MAC table...")
                         collected.mac_entries = await collector.collect_mac_table(client)
+                        collected.bridge_port_map = await collector.collect_bridge_port_map(client)
 
                     if scan_type_enum in (ScanType.snmp_full, ScanType.snmp_lldp):
                         await crud_scan_job.append_log(db, scan_job_id, "Collecting LLDP neighbors...")
@@ -163,12 +164,18 @@ def run_device_scan(self, device_id: int, scan_job_id: int, scan_type: str) -> d
                     from app.discovery.unmanaged_detector import detect_unmanaged_switches
                     unmanaged_conflicts = await detect_unmanaged_switches(db, device_id, scan_job_id)
 
+                    from app.discovery.topology_linker import link_topology
+                    await crud_scan_job.append_log(db, scan_job_id, "Linking topology (auto-cable)...")
+                    link_stats = await link_topology(db, device, collected, scan_job_id)
+
                     summary = {
                         "interfaces_collected": len(collected.interfaces),
                         "mac_entries_collected": len(collected.mac_entries),
                         "arp_entries_collected": len(collected.arp_entries),
                         "neighbors_collected": len(collected.neighbors),
-                        "conflicts_created": len(conflicts) + len(unmanaged_conflicts),
+                        "conflicts_created": len(conflicts) + len(unmanaged_conflicts) + link_stats["conflicts"],
+                        "cables_created": link_stats["cables_created"],
+                        "devices_created": link_stats["devices_created"],
                     }
 
                     if collected.mac_entries:
