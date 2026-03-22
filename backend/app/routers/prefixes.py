@@ -161,16 +161,20 @@ async def get_available_ips(
     return await crud_ip_prefix.get_available_ips(db, prefix_id, limit=size)
 
 
-@router.get("/{prefix_id}/ip-addresses", response_model=list[IpAddressRead])
+@router.get("/{prefix_id}/ip-addresses", response_model=PaginatedResponse[IpAddressRead])
 async def get_prefix_ip_addresses(
     prefix_id: int,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = 1,
     size: int = 100,
-) -> list[IpAddressRead]:
+) -> PaginatedResponse[IpAddressRead]:
+    from sqlalchemy import func, select as sa_select
+    from app.models.ip_address import IpAddress as IpAddressModel
     prefix = await crud_ip_prefix.get(db, prefix_id)
     if prefix is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prefix not found.")
     ips = await crud_ip_address.get_by_prefix(db, prefix_id, skip=(page - 1) * size, limit=size)
-    return [IpAddressRead.model_validate(ip) for ip in ips]
+    total_res = await db.execute(sa_select(func.count()).select_from(IpAddressModel).where(IpAddressModel.prefix_id == prefix_id))
+    total = total_res.scalar_one()
+    return PaginatedResponse.build([IpAddressRead.model_validate(ip) for ip in ips], total=total, page=page, size=size)
