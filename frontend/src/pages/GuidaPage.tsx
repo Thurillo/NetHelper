@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import {
   BookOpen, ChevronDown, ChevronRight, Scan, Server, Network,
-  AlertTriangle, Globe, Layers, Grid3X3, GitBranch, Download,
+  AlertTriangle, Globe, Grid3X3, GitBranch, Download,
   Terminal, Shield, Users, Zap, Search
 } from 'lucide-react'
-import { clsx } from 'clsx'
+import clsx from 'clsx'
 
 interface Section {
   id: string
