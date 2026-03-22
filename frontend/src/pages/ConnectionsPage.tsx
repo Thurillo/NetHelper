@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Search, ArrowRight, Minus, ChevronLeft, ChevronRight, Plus, Edit2 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Search, ArrowRight, Minus, ChevronLeft, ChevronRight, Plus, Edit2, Trash2 } from 'lucide-react'
 import { connectionsApi, type ConnectionPath } from '../api/connections'
 import { devicesApi } from '../api/devices'
 import { sitesApi } from '../api/sites'
 import { cabinetsApi } from '../api/cabinets'
+import { cablesApi } from '../api/cables'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import AddConnectionModal from '../components/connections/AddConnectionModal'
 import { useAuthStore } from '../store/authStore'
@@ -22,6 +23,7 @@ const ConnectionsPage: React.FC = () => {
   const [page, setPage] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingConn, setEditingConn] = useState<ConnectionPath | null>(null)
+  const qc = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['connections', { q, switchId, siteId, cabinetId, onlyDirect, page }],
@@ -185,7 +187,16 @@ const ConnectionsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {paths.map((path: ConnectionPath, idx: number) => (
-                  <ConnectionRow key={idx} path={path} onEdit={isAdmin() ? () => { setEditingConn(path); setModalOpen(true) } : undefined} />
+                  <ConnectionRow
+                    key={idx}
+                    path={path}
+                    onEdit={isAdmin() ? () => { setEditingConn(path); setModalOpen(true) } : undefined}
+                    onDelete={isAdmin() ? async () => {
+                      if (path.cable_ab_id) await cablesApi.delete(path.cable_ab_id)
+                      if (path.cable_bc_id) await cablesApi.delete(path.cable_bc_id)
+                      qc.invalidateQueries({ queryKey: ['connections'] })
+                    } : undefined}
+                  />
                 ))}
               </tbody>
             </table>
@@ -232,7 +243,16 @@ const ConnectionsPage: React.FC = () => {
 // Row component
 // ---------------------------------------------------------------------------
 
-const ConnectionRow: React.FC<{ path: ConnectionPath; onEdit?: () => void }> = ({ path, onEdit }) => {
+const ConnectionRow: React.FC<{ path: ConnectionPath; onEdit?: () => void; onDelete?: () => Promise<void> }> = ({ path, onEdit, onDelete }) => {
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!onDelete) return
+    setDeleting(true)
+    try { await onDelete() } finally { setDeleting(false); setConfirming(false) }
+  }
+
   return (
     <tr className="hover:bg-gray-50/50 transition-colors">
       {/* Device A */}
@@ -301,13 +321,31 @@ const ConnectionRow: React.FC<{ path: ConnectionPath; onEdit?: () => void }> = (
         </span>
       </td>
 
-      {/* Edit */}
+      {/* Actions */}
       <td className="px-2 py-3 text-right">
-        {onEdit && (
-          <button onClick={onEdit} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Modifica">
-            <Edit2 size={13} />
-          </button>
-        )}
+        <div className="flex items-center justify-end gap-1">
+          {onEdit && !confirming && (
+            <button onClick={onEdit} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Modifica">
+              <Edit2 size={13} />
+            </button>
+          )}
+          {onDelete && !confirming && (
+            <button onClick={() => setConfirming(true)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Elimina">
+              <Trash2 size={13} />
+            </button>
+          )}
+          {confirming && (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500 whitespace-nowrap">Eliminare?</span>
+              <button onClick={handleDelete} disabled={deleting} className="px-2 py-0.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded disabled:opacity-50">
+                {deleting ? '...' : 'Sì'}
+              </button>
+              <button onClick={() => setConfirming(false)} className="px-2 py-0.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded">
+                No
+              </button>
+            </div>
+          )}
+        </div>
       </td>
     </tr>
   )
