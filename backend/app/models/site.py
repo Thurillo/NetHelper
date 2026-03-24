@@ -22,6 +22,8 @@ class Site(Base):
     name: Mapped[str] = mapped_column(sa.String(150), unique=True, nullable=False, index=True)
     description: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
     address: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
+    floor_plan: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)       # base64 data URL
+    floor_plan_name: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=False,

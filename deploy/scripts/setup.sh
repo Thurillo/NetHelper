@@ -134,18 +134,15 @@ do_install() {
     # ── 8. File .env ──────────────────────────────────────────────────────────
     step "8/11  Configurazione ambiente"
     SECRET_KEY="$(openssl rand -hex 32)"
-    ENCRYPTION_KEY="$(openssl rand -hex 16)"
+    ENCRYPTION_KEY="$(openssl rand -hex 32)"
 
     if [[ ! -f "$APP_DIR/backend/.env" ]]; then
         cp "$APP_DIR/backend/.env.example" "$APP_DIR/backend/.env"
         sed -i "s|postgresql+asyncpg://nethelper:CHANGE_ME@localhost/nethelper|postgresql+asyncpg://$DB_USER:$DB_PASS@localhost/$DB_NAME|g" \
             "$APP_DIR/backend/.env"
-        # Sostituisci placeholder chiavi
-        sed -i "s|GENERATE_WITH_openssl_rand_hex_32|$SECRET_KEY|g"  "$APP_DIR/backend/.env"
-        sed -i "s|GENERATE_WITH_python.*|$ENCRYPTION_KEY|g"         "$APP_DIR/backend/.env"
-        # Fallback per .env.example con valori generici
-        sed -i "s|CHANGE_THIS_TO_A_RANDOM_64_CHAR_HEX_STRING|$SECRET_KEY|g"   "$APP_DIR/backend/.env"
-        sed -i "s|CHANGE_THIS_TO_A_RANDOM_32_CHAR_HEX_STRING|$ENCRYPTION_KEY|g" "$APP_DIR/backend/.env"
+        # Sostituisci placeholder chiavi (64 hex chars = 32 byte, AES-256)
+        sed -i "s|CHANGE_THIS_TO_A_RANDOM_64_CHAR_HEX_STRING|$SECRET_KEY|g" "$APP_DIR/backend/.env"
+        sed -i "s|CHANGE_THIS_TO_A_RANDOM_64_CHAR_HEX_KEY|$ENCRYPTION_KEY|g" "$APP_DIR/backend/.env"
         chmod 600 "$APP_DIR/backend/.env"
         chown "$APP_USER":"$APP_USER" "$APP_DIR/backend/.env"
         ok "File .env creato."
@@ -202,7 +199,7 @@ do_install() {
     step "10/11 Build frontend"
     su - "$APP_USER" -c "
         cd $APP_DIR/frontend
-        npm ci --silent
+        npm install --silent
         npm run build
     "
     ok "Frontend compilato in $APP_DIR/frontend/dist/"
@@ -297,7 +294,7 @@ do_update() {
     step "5/6  Build frontend"
     su - "$APP_USER" -c "
         cd $APP_DIR/frontend
-        npm ci --silent
+        npm install --silent
         npm run build
     "
     ok "Frontend compilato."

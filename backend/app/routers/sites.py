@@ -11,7 +11,7 @@ from app.crud.site import crud_site
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
 from app.schemas.cabinet import CabinetRead
-from app.schemas.site import SiteCreate, SiteRead, SiteUpdate
+from app.schemas.site import SiteCreate, SiteRead, SiteUpdate, FloorPlanUpload
 from app.schemas.pagination import PaginatedResponse
 
 router = APIRouter(prefix="/sites", tags=["sites"])
@@ -90,6 +90,60 @@ async def delete_site(
                      entity_id=site_id, client_ip=client_ip,
                      description=f"Deleted site '{site.name}'.")
     await crud_site.remove(db, site_id)
+
+
+@router.get("/{site_id}/floor-plan")
+async def get_floor_plan(
+    site_id: int,
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    site = await crud_site.get(db, site_id)
+    if site is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found.")
+    if not site.floor_plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No floor plan uploaded.")
+    return {"floor_plan": site.floor_plan, "floor_plan_name": site.floor_plan_name}
+
+
+@router.put("/{site_id}/floor-plan", response_model=SiteRead)
+async def upload_floor_plan(
+    site_id: int,
+    body: FloorPlanUpload,
+    request: Request,
+    current_user: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> SiteRead:
+    site = await crud_site.get(db, site_id)
+    if site is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found.")
+    site.floor_plan = body.floor_plan
+    site.floor_plan_name = body.floor_plan_name
+    await db.commit()
+    client_ip = getattr(request.state, "client_ip", None)
+    await log_action(db, user_id=current_user.id, action="update", entity_table="site",
+                     entity_id=site_id, client_ip=client_ip,
+                     description=f"Uploaded floor plan '{body.floor_plan_name}' for site '{site.name}'.")
+    return await crud_site.get_with_cabinet_count(db, site_id)
+
+
+@router.delete("/{site_id}/floor-plan", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_floor_plan(
+    site_id: int,
+    request: Request,
+    current_user: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    site = await crud_site.get(db, site_id)
+    if site is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found.")
+    site.floor_plan = None
+    site.floor_plan_name = None
+    await db.commit()
+    client_ip = getattr(request.state, "client_ip", None)
+    await log_action(db, user_id=current_user.id, action="update", entity_table="site",
+                     entity_id=site_id, client_ip=client_ip,
+                     description=f"Deleted floor plan for site '{site.name}'.")
 
 
 @router.get("/{site_id}/cabinets", response_model=list[CabinetRead])

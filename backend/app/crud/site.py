@@ -25,6 +25,8 @@ class CRUDSite(CRUDBase[Site, SiteCreate, SiteUpdate]):
             address=site.address,
             created_at=site.created_at,
             cabinet_count=cabinet_count,
+            floor_plan_name=site.floor_plan_name,
+            has_floor_plan=bool(site.floor_plan),
         )
 
     async def get_multi_with_counts(
@@ -47,6 +49,8 @@ class CRUDSite(CRUDBase[Site, SiteCreate, SiteUpdate]):
                 address=row.Site.address,
                 created_at=row.Site.created_at,
                 cabinet_count=row.cabinet_count,
+                floor_plan_name=row.Site.floor_plan_name,
+                has_floor_plan=bool(row.Site.floor_plan),
             )
             for row in rows
         ]

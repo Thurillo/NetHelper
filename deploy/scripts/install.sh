@@ -86,16 +86,16 @@ su - "$APP_USER" -c "
     pip install --quiet -r $APP_DIR/backend/requirements.txt
 "
 
-# Genera SECRET_KEY e ENCRYPTION_KEY casuali
+# Genera SECRET_KEY e ENCRYPTION_KEY casuali (64 hex chars = 32 byte ciascuna)
 SECRET_KEY=$(openssl rand -hex 32)
-ENCRYPTION_KEY=$(openssl rand -hex 16)
+ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 # Crea .env da .env.example
 if [[ ! -f "$APP_DIR/backend/.env" ]]; then
     cp "$APP_DIR/backend/.env.example" "$APP_DIR/backend/.env"
     sed -i "s|postgresql+asyncpg://nethelper:CHANGE_ME@localhost/nethelper|postgresql+asyncpg://$DB_USER:$DB_PASS@localhost/$DB_NAME|g" "$APP_DIR/backend/.env"
     sed -i "s|CHANGE_THIS_TO_A_RANDOM_64_CHAR_HEX_STRING|$SECRET_KEY|g" "$APP_DIR/backend/.env"
-    sed -i "s|CHANGE_THIS_TO_A_RANDOM_32_CHAR_HEX_STRING|$ENCRYPTION_KEY|g" "$APP_DIR/backend/.env"
+    sed -i "s|CHANGE_THIS_TO_A_RANDOM_64_CHAR_HEX_KEY|$ENCRYPTION_KEY|g" "$APP_DIR/backend/.env"
     chmod 600 "$APP_DIR/backend/.env"
     chown "$APP_USER":"$APP_USER" "$APP_DIR/backend/.env"
     info "    File .env creato in $APP_DIR/backend/.env"
@@ -121,7 +121,7 @@ su - "$APP_USER" -c "
 info "8/10  Build frontend..."
 su - "$APP_USER" -c "
     cd $APP_DIR/frontend
-    npm ci --silent
+    npm install --silent
     npm run build
 "
 info "    Frontend compilato in $APP_DIR/frontend/dist/"

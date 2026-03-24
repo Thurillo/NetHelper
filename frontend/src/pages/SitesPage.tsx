@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Plus, Map } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sitesApi } from '../api/sites'
 import { useAuthStore } from '../store/authStore'
@@ -70,6 +70,23 @@ const SitesPage: React.FC = () => {
     { key: 'address', header: 'Indirizzo', render: (s) => <span className="text-gray-500">{s.address ?? '—'}</span> },
     { key: 'cabinets_count', header: 'Armadi', render: (s) => <span className="font-medium">{s.cabinets_count ?? 0}</span> },
   ]
+
+  columns.push({
+    key: 'map_action',
+    header: '',
+    render: (s) => (
+      <Link
+        to={`/sedi/${s.id}/mappa`}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-primary-600 transition-colors"
+        title="Planimetria"
+      >
+        <Map size={13} />
+        {s.has_floor_plan ? 'Mappa' : 'Mappa'}
+        {s.has_floor_plan && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />}
+      </Link>
+    ),
+  })
 
   if (isAdmin()) {
     columns.push({

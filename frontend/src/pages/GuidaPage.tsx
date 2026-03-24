@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import {
   BookOpen, ChevronDown, ChevronRight, Scan, Server, Network,
   AlertTriangle, Globe, Grid3X3, GitBranch, Download,
-  Terminal, Shield, Users, Zap, Search
+  Terminal, Shield, Users, Zap, Search, TrendingUp, Map
 } from 'lucide-react'
 
 interface Section {
@@ -333,6 +333,73 @@ const sections: Section[] = [
         <InfoBox>
           Gli IP vengono popolati automaticamente dalle scansioni SNMP (tabella ARP) con sorgente <Code>snmp</Code> o
           <Code>scan</Code>. Gli IP aggiunti manualmente hanno sorgente <Code>manual</Code>.
+        </InfoBox>
+      </>
+    ),
+  },
+  {
+    id: 'dashboard-history',
+    icon: <TrendingUp size={18} />,
+    title: 'Grafici storici — Andamento nel tempo',
+    content: (
+      <>
+        <p>
+          Il pannello di controllo mostra automaticamente i <strong>grafici di andamento degli ultimi 30 giorni</strong>
+          per i principali indicatori dell'infrastruttura.
+        </p>
+        <Table
+          headers={['Indicatore', 'Colore']}
+          rows={[
+            ['Dispositivi totali', 'Blu'],
+            ['Indirizzi IP registrati', 'Indigo'],
+            ['Prefissi IP', 'Verde acqua'],
+            ['Conflitti in attesa', 'Arancio'],
+          ]}
+        />
+        <p className="font-medium mt-2">Come funziona:</p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li>Il processo <strong>Celery Beat</strong> salva uno snapshot ogni notte alle ore 00:00 UTC</li>
+          <li>I grafici compaiono automaticamente dopo la <strong>prima notte</strong> di raccolta dati</li>
+          <li>Ogni card mostra il valore attuale e il <strong>delta</strong> rispetto al giorno precedente (+/−)</li>
+          <li>Accedendo a <Code>GET /api/v1/dashboard/history?days=30</Code> si ottengono i dati raw</li>
+        </ul>
+        <InfoBox color="yellow">
+          Se i grafici non compaiono subito dopo l'installazione è normale: mancano ancora dati storici.
+          Compariranno il giorno successivo all'avvio.
+        </InfoBox>
+      </>
+    ),
+  },
+  {
+    id: 'site-map',
+    icon: <Map size={18} />,
+    title: 'Planimetria sede — Mappa degli armadi',
+    content: (
+      <>
+        <p>
+          Ogni sede può avere una <strong>planimetria</strong> (foto o disegno della sala server)
+          su cui posizionare visivamente gli armadi rack.
+        </p>
+        <p className="font-medium mt-2">Come usarla:</p>
+        <ol className="list-decimal list-inside space-y-1 ml-2">
+          <li>Aprire <em>Sedi</em> → cliccare <strong>Mappa</strong> su qualsiasi sede</li>
+          <li>Click su <strong>Carica planimetria</strong> → selezionare un'immagine (JPG, PNG, WebP)</li>
+          <li>Gli armadi associati alla sede appaiono come marker blu sull'immagine</li>
+          <li>Trascinare i marker nella posizione corretta</li>
+          <li>Cliccare <strong>Salva posizioni</strong> per confermare</li>
+        </ol>
+        <Table
+          headers={['Azione', 'Permesso richiesto']}
+          rows={[
+            ['Visualizzare la planimetria', 'Qualsiasi ruolo'],
+            ['Caricare / sostituire planimetria', 'Admin'],
+            ['Rimuovere planimetria', 'Admin'],
+            ['Spostare marker armadi', 'Admin'],
+          ]}
+        />
+        <InfoBox>
+          Un indicatore verde (●) nella lista Sedi segnala che la planimetria è già caricata per quella sede.
+          Cliccando su un armadio nella legenda in fondo alla mappa si apre direttamente il diagramma rack.
         </InfoBox>
       </>
     ),

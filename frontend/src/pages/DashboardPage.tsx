@@ -6,10 +6,76 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { useStats } from '../hooks/useDashboard'
+import { useStats, useHistory } from '../hooks/useDashboard'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import StatusDot from '../components/common/StatusDot'
 import { clsx } from 'clsx'
+import type { DashboardSnapshot } from '../types'
+
+/* ── Simple SVG line chart ── */
+interface SparklineProps {
+  data: number[]
+  color: string
+  height?: number
+}
+
+const Sparkline: React.FC<SparklineProps> = ({ data, color, height = 48 }) => {
+  if (data.length < 2) return <div style={{ height }} className="flex items-center justify-center text-xs text-gray-400">Dati insufficienti</div>
+  const w = 260
+  const h = height
+  const pad = 4
+  const min = Math.min(...data)
+  const max = Math.max(...data)
+  const range = max - min || 1
+  const xs = data.map((_, i) => pad + (i / (data.length - 1)) * (w - pad * 2))
+  const ys = data.map((v) => h - pad - ((v - min) / range) * (h - pad * 2))
+  const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
+  const fill = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
+    + ` L${xs[xs.length - 1].toFixed(1)},${h} L${xs[0].toFixed(1)},${h} Z`
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
+      <defs>
+        <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={fill} fill={`url(#grad-${color.replace('#', '')})`} />
+      <path d={d} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r="3" fill={color} />
+    </svg>
+  )
+}
+
+type SnapshotNumericKey = Exclude<keyof DashboardSnapshot, 'id' | 'recorded_at'>
+
+interface TrendCardProps {
+  label: string
+  snapshots: DashboardSnapshot[]
+  field: SnapshotNumericKey
+  color: string
+}
+
+const TrendCard: React.FC<TrendCardProps> = ({ label, snapshots, field, color }) => {
+  const values = snapshots.map((s) => s[field])
+  const latest = values.at(-1) ?? 0
+  const prev = values.at(-2) ?? latest
+  const delta = latest - prev
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-500">{label}</span>
+        {values.length > 1 && (
+          <span className={clsx('text-[11px] font-semibold', delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-red-500' : 'text-gray-400')}>
+            {delta > 0 ? '+' : ''}{delta}
+          </span>
+        )}
+      </div>
+      <p className="text-2xl font-bold text-gray-900 mb-3">{latest.toLocaleString()}</p>
+      <Sparkline data={values} color={color} />
+    </div>
+  )
+}
 
 /* ── Stat card ── */
 interface StatCardProps {
@@ -69,6 +135,7 @@ const SCAN_TYPE_LABELS: Record<string, string> = {
 /* ── Page ── */
 const DashboardPage: React.FC = () => {
   const { data: stats, isLoading } = useStats()
+  const { data: history = [] } = useHistory(30)
 
   if (isLoading) return <LoadingSpinner centered />
   if (!stats) return null
@@ -174,6 +241,22 @@ const DashboardPage: React.FC = () => {
           warning={stats.suspected_unmanaged_switches > 0}
         />
       </div>
+
+      {/* History trend charts */}
+      {history.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp size={15} className="text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-700">Andamento ultimi 30 giorni</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <TrendCard label="Dispositivi totali"  snapshots={history} field="devices_total"      color="#3b82f6" />
+            <TrendCard label="Indirizzi IP"         snapshots={history} field="ip_addresses_count" color="#6366f1" />
+            <TrendCard label="Prefissi"             snapshots={history} field="prefixes_count"     color="#14b8a6" />
+            <TrendCard label="Conflitti in attesa"  snapshots={history} field="pending_conflicts"  color="#f97316" />
+          </div>
+        </div>
+      )}
 
       {/* Charts row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

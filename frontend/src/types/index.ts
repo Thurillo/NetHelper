@@ -80,6 +80,8 @@ export interface Site {
   address: string | null
   cabinets_count?: number
   created_at: string
+  floor_plan_name?: string | null
+  has_floor_plan?: boolean
 }
 
 export interface SiteCreate {
@@ -98,6 +100,8 @@ export interface Cabinet {
   devices_count?: number
   used_u?: number
   devices_summary?: Record<string, number>
+  map_x?: number | null
+  map_y?: number | null
 }
 
 export interface CabinetCreate {
@@ -105,6 +109,8 @@ export interface CabinetCreate {
   site_id: number
   u_count?: number
   description?: string | null
+  map_x?: number | null
+  map_y?: number | null
 }
 
 export interface RackDiagramDevice {
@@ -593,6 +599,18 @@ export interface DashboardStats {
   recent_scans: ScanJob[]
   devices_by_type: Record<string, number>
   devices_by_status: Record<string, number>
+}
+
+export interface DashboardSnapshot {
+  id: number
+  recorded_at: string
+  devices_total: number
+  devices_active: number
+  sites_count: number
+  ip_addresses_count: number
+  prefixes_count: number
+  pending_conflicts: number
+  scan_jobs_24h: number
 }
 
 // ============================================================

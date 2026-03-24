@@ -27,7 +27,8 @@ NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e
 | 📦 **Importazione massiva** | Selezione multipla degli host scoperti → import bulk con tipo, armadio e vendor per riga |
 | 🔑 **Credenziali per dispositivo** | SNMP community/v3 e SSH username/password configurabili per singolo dispositivo (override vendor) |
 | 🗄️ **Inventario** | Dispositivi, interfacce, cavi, indirizzi IP e MAC inseribili anche manualmente |
-| 📊 **Dashboard** | Statistiche, grafici dispositivi per tipo/stato, ultime scan e conflitti in attesa |
+| 📊 **Dashboard** | Statistiche, grafici dispositivi per tipo/stato, ultime scan, conflitti in attesa e **grafici di andamento storico 30 giorni** |
+| 🗺️ **Planimetria sede** | Caricamento planimetria PNG/JPG con **armadi posizionabili drag-and-drop** sulla mappa |
 | 🔎 **Ricerca globale** | Barra di ricerca ⌘K per trovare qualsiasi dispositivo per nome, IP o MAC |
 | 🏗️ **Armadi rack** | Diagramma visuale con colori per tipo dispositivo |
 | 🔌 **Patch panel** | Panel virtuali con etichette porte personalizzate e stanza di destinazione |
@@ -236,8 +237,12 @@ Accedere all'indirizzo dell'applicazione e inserire le credenziali create durant
 
 La schermata iniziale mostra:
 - Statistiche globali (dispositivi, sedi, prefissi IP, conflitti in attesa)
+- **Grafici di andamento** — sparkline con i valori degli ultimi 30 giorni per dispositivi, IP, prefissi e conflitti (visibili dopo la prima notte di raccolta dati)
+- Distribuzione dispositivi per tipo e per stato
 - Ultime scansioni eseguite
-- Badge rosso con numero conflitti da risolvere
+- Badge arancione con numero conflitti da risolvere
+
+> I dati storici vengono raccolti automaticamente ogni notte dal processo **Celery Beat**.
 
 ---
 
@@ -249,6 +254,14 @@ La schermata iniziale mostra:
 2. Creare uno o più **Armadi** nella sede, specificando:
    - Nome identificativo
    - Numero di unità rack (U) — es. 12U, 24U, 42U
+
+#### Planimetria sede
+
+Dalla pagina **Sedi**, cliccare il pulsante **Mappa** su qualsiasi sede per aprire la planimetria interattiva:
+- **Caricamento planimetria** — caricare una foto o disegno della sala server (JPG, PNG, WebP)
+- **Posizionamento armadi** — trascinare i marker degli armadi sulla planimetria
+- Le posizioni vengono salvate automaticamente al click su **Salva posizioni**
+- Un indicatore verde (●) nella lista sedi segnala che la planimetria è già caricata
 
 #### Diagramma rack
 
@@ -466,7 +479,11 @@ POST /api/v1/scan-jobs/ip-range              # ping sweep
 POST /api/v1/devices/bulk                    # import massivo da scan
      body: {"devices": [{"name": "...", "primary_ip": "...", "device_type": "server"}], "skip_duplicates": true}
 GET  /api/v1/prefixes/1/utilization          # utilizzo prefisso IP
+POST /api/v1/prefixes/assign-ips             # collega IP ai prefissi per CIDR (fix utilizzo)
 GET  /api/v1/dashboard/stats                 # statistiche dashboard
+GET  /api/v1/dashboard/history?days=30       # andamento storico (snapshot giornalieri)
+PUT  /api/v1/sites/1/floor-plan              # carica planimetria sede (base64)
+DELETE /api/v1/sites/1/floor-plan            # rimuove planimetria sede
 ```
 
 ---

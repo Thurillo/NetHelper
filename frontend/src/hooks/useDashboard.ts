@@ -21,3 +21,10 @@ export const useStats = () => {
 
   return query
 }
+
+export const useHistory = (days = 30) =>
+  useQuery({
+    queryKey: ['dashboard', 'history', days],
+    queryFn: () => dashboardApi.getHistory(days),
+    staleTime: 5 * 60_000,
+  })

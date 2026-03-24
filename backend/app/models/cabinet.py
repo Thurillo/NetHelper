@@ -32,6 +32,8 @@ class Cabinet(Base):
     description: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
     row_label: Mapped[Optional[str]] = mapped_column(sa.String(50), nullable=True)
     position: Mapped[Optional[int]] = mapped_column(sa.Integer, nullable=True)
+    map_x: Mapped[Optional[float]] = mapped_column(sa.Float, nullable=True)   # % from left (0-100)
+    map_y: Mapped[Optional[float]] = mapped_column(sa.Float, nullable=True)   # % from top (0-100)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=False,

@@ -24,6 +24,7 @@ import VendorsPage from './pages/VendorsPage'
 import ConnectionsPage from './pages/ConnectionsPage'
 import BackupPage from './pages/BackupPage'
 import GuidaPage from './pages/GuidaPage'
+import SiteMapPage from './pages/SiteMapPage'
 
 const App: React.FC = () => {
   return (
@@ -32,6 +33,7 @@ const App: React.FC = () => {
       <Route element={<Layout />}>
         <Route index element={<DashboardPage />} />
         <Route path="sedi" element={<SitesPage />} />
+        <Route path="sedi/:id/mappa" element={<SiteMapPage />} />
         <Route path="armadi" element={<CabinetsPage />} />
         <Route path="armadi/:id" element={<RackDetailPage />} />
         <Route path="dispositivi" element={<DevicesPage />} />

@@ -13,6 +13,7 @@ celery_app = Celery(
     include=[
         "app.tasks.scan_tasks",
         "app.tasks.scheduled_scans",
+        "app.tasks.snapshot_tasks",
     ],
 )
 
@@ -30,6 +31,10 @@ celery_app.conf.update(
         "run-scheduled-scans": {
             "task": "app.tasks.scheduled_scans.run_scheduled_scans",
             "schedule": 60.0,  # check every 60 seconds
+        },
+        "take-daily-snapshot": {
+            "task": "app.tasks.snapshot_tasks.take_daily_snapshot",
+            "schedule": 3600.0,  # check every hour, skips if already done today
         },
     },
 )

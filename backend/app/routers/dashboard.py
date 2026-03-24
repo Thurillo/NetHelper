@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -13,13 +14,14 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.cable import Cable
 from app.models.cabinet import Cabinet
+from app.models.dashboard_snapshot import DashboardSnapshot
 from app.models.device import Device, DeviceStatus
 from app.models.interface import Interface
 from app.models.ip_address import IpAddress
 from app.models.ip_prefix import IpPrefix
 from app.models.site import Site
 from app.models.vlan import Vlan
-from app.schemas.dashboard import DashboardStats
+from app.schemas.dashboard import DashboardStats, SnapshotRead
 from app.schemas.scan_job import ScanJobRead
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -100,3 +102,18 @@ async def get_dashboard_stats(
         devices_by_type=devices_by_type,
         devices_by_status=devices_by_status,
     )
+
+
+@router.get("/history", response_model=list[SnapshotRead])
+async def get_dashboard_history(
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    days: int = 30,
+) -> list[SnapshotRead]:
+    since = datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 365)))
+    result = await db.execute(
+        select(DashboardSnapshot)
+        .where(DashboardSnapshot.recorded_at >= since)
+        .order_by(DashboardSnapshot.recorded_at)
+    )
+    return [SnapshotRead.model_validate(s) for s in result.scalars().all()]

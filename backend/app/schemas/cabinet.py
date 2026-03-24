@@ -21,6 +21,8 @@ class CabinetUpdate(BaseModel):
     description: Optional[str] = None
     row_label: Optional[str] = None
     position: Optional[str] = None
+    map_x: Optional[float] = None
+    map_y: Optional[float] = None
 
 
 class _SiteMinimal(BaseModel):
@@ -37,6 +39,8 @@ class CabinetRead(BaseModel):
     description: Optional[str] = None
     row_label: Optional[str] = None
     position: Optional[str] = None
+    map_x: Optional[float] = None
+    map_y: Optional[float] = None
     site: Optional[_SiteMinimal] = None
     devices_count: Optional[int] = None
     used_u: Optional[int] = None

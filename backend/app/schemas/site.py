@@ -18,6 +18,11 @@ class SiteUpdate(BaseModel):
     address: Optional[str] = None
 
 
+class FloorPlanUpload(BaseModel):
+    floor_plan: str          # base64 data URL (e.g. "data:image/png;base64,...")
+    floor_plan_name: str
+
+
 class SiteRead(BaseModel):
     id: int
     name: str
@@ -25,5 +30,7 @@ class SiteRead(BaseModel):
     address: Optional[str] = None
     created_at: datetime
     cabinet_count: int = 0
+    floor_plan_name: Optional[str] = None
+    has_floor_plan: bool = False
 
     model_config = {"from_attributes": True}
