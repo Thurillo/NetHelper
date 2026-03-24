@@ -55,7 +55,7 @@ class CRUDIpAddress(CRUDBase[IpAddress, IpAddressCreate, IpAddressUpdate]):
             stmt = stmt.where(cast(IpAddress.address, INET).op("<<")(cast(cidr, INET)))
         else:
             stmt = stmt.where(IpAddress.prefix_id == prefix_id)
-        stmt = stmt.order_by(IpAddress.address).offset(skip).limit(limit)
+        stmt = stmt.order_by(cast(IpAddress.address, INET)).offset(skip).limit(limit)
         result = await db.execute(stmt)
         return list(result.scalars().all())
 

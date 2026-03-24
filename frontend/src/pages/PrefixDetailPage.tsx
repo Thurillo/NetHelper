@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Link2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { prefixesApi } from '../api/prefixes'
 import { ipAddressesApi } from '../api/ipAddresses'
@@ -8,7 +8,31 @@ import { Badge } from '../components/common/Badge'
 import Modal from '../components/common/Modal'
 import Pagination from '../components/common/Pagination'
 import LoadingSpinner from '../components/common/LoadingSpinner'
-import type { IpAddressCreate } from '../types'
+import type { IpAddressCreate, IpAddress } from '../types'
+
+type SortKey = 'address' | 'dns_name' | 'device' | 'vendor' | 'site' | 'source'
+type SortDir = 'asc' | 'desc'
+
+function ipToNum(ip: string): number {
+  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0
+}
+
+function sortIps(items: IpAddress[], key: SortKey, dir: SortDir): IpAddress[] {
+  return [...items].sort((a, b) => {
+    if (key === 'address') {
+      const diff = ipToNum(a.address) - ipToNum(b.address)
+      return dir === 'asc' ? diff : -diff
+    }
+    let av = '', bv = ''
+    if (key === 'device') { av = a.device?.name ?? ''; bv = b.device?.name ?? '' }
+    else if (key === 'vendor') { av = a.device?.vendor_name ?? ''; bv = b.device?.vendor_name ?? '' }
+    else if (key === 'site') { av = a.device?.site_name ?? ''; bv = b.device?.site_name ?? '' }
+    else if (key === 'dns_name') { av = a.dns_name ?? ''; bv = b.dns_name ?? '' }
+    else { av = a.source ?? ''; bv = b.source ?? '' }
+    const cmp = av.localeCompare(bv)
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
 
 const PrefixDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -18,6 +42,8 @@ const PrefixDetailPage: React.FC = () => {
   const [isAddModal, setIsAddModal] = useState(false)
   const [addForm, setAddForm] = useState<IpAddressCreate>({ address: '', status: 'active' })
   const [addError, setAddError] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('address')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const { data: prefix, isLoading } = useQuery({
     queryKey: ['prefixes', prefixId],
@@ -48,11 +74,39 @@ const PrefixDetailPage: React.FC = () => {
     onError: () => setAddError('Errore durante il salvataggio'),
   })
 
+  const assignIps = useMutation({
+    mutationFn: () => prefixesApi.assignIps(),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['prefixes', prefixId] })
+      alert(`Collegamento completato: ${res.updated} indirizzi associati ai prefissi.`)
+    },
+    onError: () => alert('Errore durante il collegamento automatico.'),
+  })
+
   const handleAddIp = (e: React.FormEvent) => {
     e.preventDefault()
     if (!addForm.address) { setAddError('Indirizzo obbligatorio'); return }
     createIp.mutate({ ...addForm, prefix_id: prefixId })
   }
+
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const sortedItems = useMemo(
+    () => ipData?.items ? sortIps(ipData.items, sortKey, sortDir) : [],
+    [ipData?.items, sortKey, sortDir]
+  )
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown size={12} className="ml-1 opacity-40 inline" />
+    return sortDir === 'asc'
+      ? <ArrowUp size={12} className="ml-1 text-primary-600 inline" />
+      : <ArrowDown size={12} className="ml-1 text-primary-600 inline" />
+  }
+
+  const thClass = 'px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700 whitespace-nowrap'
 
   if (isLoading) return <LoadingSpinner centered />
   if (!prefix) return <div className="text-center text-gray-500 py-12">Prefisso non trovato</div>
@@ -80,13 +134,24 @@ const PrefixDetailPage: React.FC = () => {
               {prefix.description ? ` — ${prefix.description}` : ''}
             </p>
           </div>
-          <button
-            onClick={() => setIsAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
-          >
-            <Plus size={16} />
-            Aggiungi IP
-          </button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => assignIps.mutate()}
+              disabled={assignIps.isPending}
+              title="Collega automaticamente gli IP ai prefissi e ai dispositivi corrispondenti"
+              className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50"
+            >
+              <Link2 size={15} />
+              {assignIps.isPending ? 'Associando...' : 'Associa IP'}
+            </button>
+            <button
+              onClick={() => setIsAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
+            >
+              <Plus size={16} />
+              Aggiungi IP
+            </button>
+          </div>
         </div>
 
         {/* Utilization bar */}
@@ -112,41 +177,55 @@ const PrefixDetailPage: React.FC = () => {
         </div>
         {loadingIps ? <LoadingSpinner centered /> : (
           <>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Indirizzo IP</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">DNS / Hostname</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dispositivo</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vendor</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sede</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sorgente</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {ipData?.items.map((ip) => (
-                  <tr key={ip.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 font-mono font-semibold text-gray-900">{ip.address}</td>
-                    <td className="px-5 py-3 text-gray-500 text-xs">{ip.dns_name ?? '—'}</td>
-                    <td className="px-5 py-3">
-                      {ip.device
-                        ? <span className="font-medium text-primary-700">{ip.device.name}</span>
-                        : <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-5 py-3 text-gray-500 text-xs">{ip.device?.vendor_name ?? '—'}</td>
-                    <td className="px-5 py-3 text-gray-500 text-xs">{ip.device?.site_name ?? '—'}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${ip.source === 'ip_range_scan' ? 'bg-blue-50 text-blue-700' : ip.source === 'manual' ? 'bg-gray-100 text-gray-600' : 'bg-purple-50 text-purple-700'}`}>
-                        {ip.source ?? '—'}
-                      </span>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className={thClass} onClick={() => handleSort('address')}>
+                      Indirizzo IP <SortIcon col="address" />
+                    </th>
+                    <th className={thClass} onClick={() => handleSort('dns_name')}>
+                      DNS / Hostname <SortIcon col="dns_name" />
+                    </th>
+                    <th className={thClass} onClick={() => handleSort('device')}>
+                      Dispositivo <SortIcon col="device" />
+                    </th>
+                    <th className={thClass} onClick={() => handleSort('vendor')}>
+                      Vendor <SortIcon col="vendor" />
+                    </th>
+                    <th className={thClass} onClick={() => handleSort('site')}>
+                      Sede <SortIcon col="site" />
+                    </th>
+                    <th className={thClass} onClick={() => handleSort('source')}>
+                      Sorgente <SortIcon col="source" />
+                    </th>
                   </tr>
-                ))}
-                {ipData?.items.length === 0 && (
-                  <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-500 text-sm">Nessun indirizzo trovato in questo prefisso</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {sortedItems.map((ip) => (
+                    <tr key={ip.id} className="hover:bg-gray-50">
+                      <td className="px-5 py-3 font-mono font-semibold text-gray-900">{ip.address}</td>
+                      <td className="px-5 py-3 text-gray-500 text-xs">{ip.dns_name ?? '—'}</td>
+                      <td className="px-5 py-3">
+                        {ip.device
+                          ? <span className="font-medium text-primary-700">{ip.device.name}</span>
+                          : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-5 py-3 text-gray-500 text-xs">{ip.device?.vendor_name ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-500 text-xs">{ip.device?.site_name ?? '—'}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${ip.source === 'ip_range_scan' ? 'bg-blue-50 text-blue-700' : ip.source === 'manual' ? 'bg-gray-100 text-gray-600' : 'bg-purple-50 text-purple-700'}`}>
+                          {ip.source ?? '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {sortedItems.length === 0 && (
+                    <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-500 text-sm">Nessun indirizzo trovato in questo prefisso</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
             {ipData && <Pagination page={page} pages={ipData.pages} total={ipData.total} size={ipData.size} onPageChange={setPage} />}
           </>
         )}

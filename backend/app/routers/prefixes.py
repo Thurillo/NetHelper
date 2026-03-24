@@ -148,6 +148,16 @@ async def get_prefix_utilization(
     return util
 
 
+@router.post("/assign-ips", response_model=dict)
+async def assign_all_ips(
+    _: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Link ip_address rows with prefix_id=NULL to the correct prefix by CIDR match."""
+    updated = await crud_ip_prefix.assign_prefix_ids(db)
+    return {"updated": updated}
+
+
 @router.get("/{prefix_id}/available-ips", response_model=list[str])
 async def get_available_ips(
     prefix_id: int,

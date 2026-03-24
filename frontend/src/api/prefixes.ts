@@ -49,4 +49,9 @@ export const prefixesApi = {
     const response = await apiClient.get<PaginatedResponse<IpAddress>>(`/prefixes/${id}/ip-addresses`, { params })
     return response.data
   },
+
+  assignIps: async (): Promise<{ updated: number }> => {
+    const response = await apiClient.post<{ updated: number }>('/prefixes/assign-ips', {})
+    return response.data
+  },
 }
