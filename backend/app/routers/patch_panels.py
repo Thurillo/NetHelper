@@ -161,10 +161,12 @@ async def link_patch_port(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target interface not found.")
 
     from app.schemas.cable import CableCreate
+    a_id = min(port_id, body.target_interface_id)
+    b_id = max(port_id, body.target_interface_id)
     cable_in = CableCreate(
-        interface_a_id=port_id,
-        interface_b_id=body.target_interface_id,
-        cable_type="patch",
+        interface_a_id=a_id,
+        interface_b_id=b_id,
+        cable_type="cat6",
     )
     cable = await crud_cable.create(db, cable_in)
 
