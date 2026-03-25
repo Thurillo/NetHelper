@@ -150,7 +150,7 @@ const PrefixesPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Prefisso CIDR *</label>
             <input type="text" value={form.prefix} onChange={(e) => setForm((f) => ({ ...f, prefix: e.target.value }))} placeholder="192.168.1.0/24" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
               <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as IpPrefixCreate['status'] }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">

@@ -216,7 +216,7 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
 
         {/* ── Punto A ── */}
         <SectionLabel>Punto A — Dispositivo</SectionLabel>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={lbl}>Dispositivo</label>
             <select value={deviceId} onChange={e => setDeviceId(e.target.value ? Number(e.target.value) : '')} className={sel}>
@@ -250,7 +250,7 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
               <div>
                 <label className={lbl}>Porta lato dispositivo</label>
                 <select value={ppIfaceDevSide} onChange={e => setPpIfaceDevSide(e.target.value ? Number(e.target.value) : '')} disabled={!ppId} className={sel}>
@@ -279,7 +279,7 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
 
         {/* ── Punto C ── */}
         <SectionLabel>Punto C — Switch</SectionLabel>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={lbl}>Switch</label>
             <select value={switchId} onChange={e => setSwitchId(e.target.value ? Number(e.target.value) : '')} className={sel}>

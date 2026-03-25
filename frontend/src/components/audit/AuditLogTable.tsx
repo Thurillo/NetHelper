@@ -120,6 +120,7 @@ const AuditLogTable: React.FC = () => {
         <EmptyState title="Nessun log trovato" description="Modifica i filtri per cercare altri eventi." />
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -170,6 +171,7 @@ const AuditLogTable: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
           {data && (
             <Pagination page={page} pages={data.pages} total={data.total} size={data.size} onPageChange={setPage} />
           )}

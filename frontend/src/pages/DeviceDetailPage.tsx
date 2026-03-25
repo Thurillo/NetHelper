@@ -302,7 +302,7 @@ const DeviceDetailPage: React.FC = () => {
       >
         <form onSubmit={handleEditSubmit} className="space-y-4">
           {editError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{editError}</p>}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
               <input type="text" value={editForm.name as string ?? ''} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
@@ -366,7 +366,7 @@ const DeviceDetailPage: React.FC = () => {
               <div className="p-4 space-y-4 border-t border-gray-200">
                 {/* SNMP */}
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">SNMP</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Versione</label>
                     <select value={editForm.snmp_version as number ?? 2} onChange={e => { setEditForm(p => ({ ...p, snmp_version: Number(e.target.value) })); setShowSnmpV3(Number(e.target.value) === 3) }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -381,7 +381,7 @@ const DeviceDetailPage: React.FC = () => {
                   </div>
                 </div>
                 {(showSnmpV3 || (editForm.snmp_version as number) === 3) && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Username SNMPv3</label>
                       <input type="text" value={editForm.snmp_v3_username as string ?? ''} onChange={e => setEditForm(p => ({ ...p, snmp_v3_username: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
@@ -406,7 +406,7 @@ const DeviceDetailPage: React.FC = () => {
                 )}
                 {/* SSH */}
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-2">SSH</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                     <input type="text" value={editForm.ssh_username as string ?? ''} onChange={e => setEditForm(p => ({ ...p, ssh_username: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />

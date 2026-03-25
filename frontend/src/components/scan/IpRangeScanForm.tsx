@@ -122,7 +122,7 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
       {success && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">Scansione avviata con successo!</p>}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">IP iniziale</label>
           <input

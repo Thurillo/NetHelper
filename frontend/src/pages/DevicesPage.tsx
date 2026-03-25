@@ -292,7 +292,7 @@ const DevicesPage: React.FC = () => {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {f('Nome *', 'name')}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
@@ -345,7 +345,7 @@ const DevicesPage: React.FC = () => {
           </div>
           <details className="border border-gray-200 rounded-lg">
             <summary className="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 hover:bg-gray-50">Configurazione SNMP / SSH</summary>
-            <div className="px-4 pb-4 grid grid-cols-2 gap-4 mt-2">
+            <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
               {f('Community SNMP', 'snmp_community')}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Versione SNMP</label>

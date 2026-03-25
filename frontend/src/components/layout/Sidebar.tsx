@@ -58,9 +58,10 @@ interface NavGroupProps {
   collapsed: boolean
   pendingConflicts?: number
   isAdmin?: boolean
+  onNavClick?: () => void
 }
 
-const NavGroup: React.FC<NavGroupProps> = ({ label, items, collapsed, pendingConflicts = 0, isAdmin = false }) => {
+const NavGroup: React.FC<NavGroupProps> = ({ label, items, collapsed, pendingConflicts = 0, isAdmin = false, onNavClick }) => {
   const visibleItems = items.filter(item => !item.adminOnly || isAdmin)
   if (visibleItems.length === 0) return null
   return (
@@ -76,6 +77,7 @@ const NavGroup: React.FC<NavGroupProps> = ({ label, items, collapsed, pendingCon
         to={item.to}
         end={item.to === '/'}
         title={collapsed ? item.label : undefined}
+        onClick={onNavClick}
         className={({ isActive }) =>
           clsx(
             'relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium',
@@ -132,18 +134,30 @@ const NavGroup: React.FC<NavGroupProps> = ({ label, items, collapsed, pendingCon
 
 const Sidebar: React.FC = () => {
   const { user, isAdmin } = useAuthStore()
-  const { sidebarOpen, toggleSidebar, pendingConflicts } = useUiStore()
+  const { sidebarOpen, toggleSidebar, setSidebarOpen, pendingConflicts } = useUiStore()
   const logout = useLogout()
   const collapsed = !sidebarOpen
+
+  // On mobile, close the sidebar after navigating
+  const handleNavClick = () => {
+    if (window.innerWidth < 1024) setSidebarOpen(false)
+  }
 
   return (
     <aside
       className={clsx(
-        'flex flex-col flex-shrink-0 h-screen sticky top-0',
+        // Mobile: fixed overlay sliding in/out; Desktop: static in the flow
+        'fixed inset-y-0 left-0 z-40',
+        'lg:static lg:z-auto',
+        'flex flex-col flex-shrink-0 h-screen',
         'bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950',
         'border-r border-white/5',
         'transition-all duration-200',
-        collapsed ? 'w-[60px]' : 'w-[220px]'
+        // Mobile: slide off-screen when closed; Desktop: always visible
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        // Width: mobile always 220px; desktop respects collapse state
+        'w-[220px]',
+        collapsed && 'lg:w-[60px]',
       )}
     >
       {/* ── Logo ─────────────────────────────── */}
@@ -182,13 +196,13 @@ const Sidebar: React.FC = () => {
 
       {/* ── Nav ──────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-4 scrollbar-hide">
-        <NavGroup label="Generale"   items={mainNav}    collapsed={collapsed} />
-        <NavGroup label="Rete"       items={networkNav} collapsed={collapsed} />
-        <NavGroup label="Operazioni" items={scanNav}    collapsed={collapsed} pendingConflicts={pendingConflicts} />
+        <NavGroup label="Generale"   items={mainNav}    collapsed={collapsed} onNavClick={handleNavClick} />
+        <NavGroup label="Rete"       items={networkNav} collapsed={collapsed} onNavClick={handleNavClick} />
+        <NavGroup label="Operazioni" items={scanNav}    collapsed={collapsed} pendingConflicts={pendingConflicts} onNavClick={handleNavClick} />
         {isAdmin() && (
-          <NavGroup label="Admin" items={adminNav} collapsed={collapsed} />
+          <NavGroup label="Admin" items={adminNav} collapsed={collapsed} onNavClick={handleNavClick} />
         )}
-        <NavGroup label="Supporto" items={helpNav} collapsed={collapsed} isAdmin={isAdmin()} />
+        <NavGroup label="Supporto" items={helpNav} collapsed={collapsed} isAdmin={isAdmin()} onNavClick={handleNavClick} />
       </nav>
 
       {/* ── User ─────────────────────────────── */}
