@@ -103,6 +103,7 @@ def create_app() -> FastAPI:
         scheduled_scans,
         sites,
         switches,
+        system,
         topology,
         users,
         vendors,
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(switches.router, prefix=api_prefix)
     app.include_router(connections.router, prefix=api_prefix)
     app.include_router(backup.router, prefix=api_prefix)
+    app.include_router(system.router, prefix=api_prefix)
 
     # ----------------------------------------------------------------
     # Health check

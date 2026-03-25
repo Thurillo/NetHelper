@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, MapPin, Server, Network, GitBranch, Grid3X3,
   Layers, Globe, Scan, Clock, AlertTriangle, History, Users,
-  Building2, LogOut, ChevronLeft, ChevronRight, Wifi, Cable, HardDrive, BookOpen
+  Building2, LogOut, ChevronLeft, ChevronRight, Wifi, Cable, HardDrive, BookOpen, ArrowUpCircle
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'
@@ -49,6 +49,7 @@ const adminNav: NavItem[] = [
 
 const helpNav: NavItem[] = [
   { to: '/guida', icon: <BookOpen size={17} />, label: 'Guida all\'uso' },
+  { to: '/aggiornamento', icon: <ArrowUpCircle size={17} />, label: 'Aggiornamento', adminOnly: true },
 ]
 
 interface NavGroupProps {
@@ -56,16 +57,20 @@ interface NavGroupProps {
   items: NavItem[]
   collapsed: boolean
   pendingConflicts?: number
+  isAdmin?: boolean
 }
 
-const NavGroup: React.FC<NavGroupProps> = ({ label, items, collapsed, pendingConflicts = 0 }) => (
+const NavGroup: React.FC<NavGroupProps> = ({ label, items, collapsed, pendingConflicts = 0, isAdmin = false }) => {
+  const visibleItems = items.filter(item => !item.adminOnly || isAdmin)
+  if (visibleItems.length === 0) return null
+  return (
   <div className="mb-1">
     {!collapsed && (
       <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-500/70 select-none">
         {label}
       </p>
     )}
-    {items.map((item) => (
+    {visibleItems.map((item) => (
       <NavLink
         key={item.to}
         to={item.to}
@@ -122,7 +127,8 @@ const NavGroup: React.FC<NavGroupProps> = ({ label, items, collapsed, pendingCon
       </NavLink>
     ))}
   </div>
-)
+  )
+}
 
 const Sidebar: React.FC = () => {
   const { user, isAdmin } = useAuthStore()
@@ -182,7 +188,7 @@ const Sidebar: React.FC = () => {
         {isAdmin() && (
           <NavGroup label="Admin" items={adminNav} collapsed={collapsed} />
         )}
-        <NavGroup label="Supporto" items={helpNav} collapsed={collapsed} />
+        <NavGroup label="Supporto" items={helpNav} collapsed={collapsed} isAdmin={isAdmin()} />
       </nav>
 
       {/* ── User ─────────────────────────────── */}

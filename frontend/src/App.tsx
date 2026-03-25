@@ -25,6 +25,7 @@ import ConnectionsPage from './pages/ConnectionsPage'
 import BackupPage from './pages/BackupPage'
 import GuidaPage from './pages/GuidaPage'
 import SiteMapPage from './pages/SiteMapPage'
+import UpdatePage from './pages/UpdatePage'
 
 const App: React.FC = () => {
   return (
@@ -54,6 +55,7 @@ const App: React.FC = () => {
         <Route path="vendor" element={<VendorsPage />} />
         <Route path="backup" element={<BackupPage />} />
         <Route path="guida" element={<GuidaPage />} />
+        <Route path="aggiornamento" element={<UpdatePage />} />
       </Route>
     </Routes>
   )
