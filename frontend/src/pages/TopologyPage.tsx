@@ -16,6 +16,7 @@ import {
 import { topologyApi, topologyMapsApi } from '../api/topology'
 import { checkmkApi } from '../api/checkmk'
 import { useAuthStore } from '../store/authStore'
+import { useTopologyMaps, useTopologyMap } from '../hooks/useTopology'
 import TopologyGraph, { DEVICE_COLORS } from '../components/topology/TopologyGraph'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../components/common/Badge'
 import CheckMKBadge from '../components/common/CheckMKBadge'
@@ -113,18 +114,8 @@ const TopologyPage: React.FC = () => {
   const autoLayoutRef = useRef<Record<string, TopologyMapNodeLayout> | null>(null)
 
   // ── Data fetching ──────────────────────────────────────────────────────────
-  const { data: mapList } = useQuery({
-    queryKey: ['topology-maps', null],
-    queryFn: () => topologyMapsApi.list(),
-    staleTime: 60_000,
-  })
-
-  const { data: activeMap } = useQuery({
-    queryKey: ['topology-maps', selectedMapId],
-    queryFn: () => topologyMapsApi.get(selectedMapId!),
-    enabled: !!selectedMapId,
-    staleTime: 30_000,
-  })
+  const { data: mapList } = useTopologyMaps()
+  const { data: activeMap } = useTopologyMap(selectedMapId)
 
   const { data: topology } = useQuery({
     queryKey: ['topology', {}],
