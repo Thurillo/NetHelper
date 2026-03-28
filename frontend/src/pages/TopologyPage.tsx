@@ -121,7 +121,7 @@ const TopologyPage: React.FC = () => {
             </div>
 
             <button
-              onClick={() => navigate(`/dispositivi/${selectedNode.device_id}`)}
+              onClick={() => navigate(`/dispositivi/${selectedNode.id}`)}
               className="w-full px-3 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
             >
               Vai al dispositivo

@@ -38,9 +38,9 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, isLoading, onNodeCl
     return {
       nodes: data.nodes.map((n) => ({
         id: n.id,
-        label: n.label,
+        label: n.name,
         device_type: n.device_type,
-        device_id: n.device_id,
+        device_id: n.id,
         primary_ip: n.primary_ip,
         cabinet_name: n.cabinet_name,
         site_name: n.site_name,
@@ -48,8 +48,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, isLoading, onNodeCl
         color: deviceColors[n.device_type] ?? '#6b7280',
       })),
       links: data.edges.map((e) => ({
-        source: e.source,
-        target: e.target,
+        source: e.source_device_id,
+        target: e.target_device_id,
         label: e.label ?? e.cable_type ?? '',
         id: e.id,
       })),

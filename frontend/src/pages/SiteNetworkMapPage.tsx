@@ -348,7 +348,7 @@ const SiteNetworkMapPage: React.FC = () => {
     cabinets.forEach((cab) => {
       if (cab.map_x == null || cab.map_y == null) return
       const collapsed = collapsedCabinets.has(cab.id)
-      const devCount = topology?.nodes.filter((n) => deviceMap[n.device_id]?.cabinet_id === cab.id).length ?? 0
+      const devCount = topology?.nodes.filter((n) => deviceMap[n.id]?.cabinet_id === cab.id).length ?? 0
       result.push({
         id: `cabinet:${cab.id}`,
         type: 'cabinet',
@@ -361,11 +361,11 @@ const SiteNetworkMapPage: React.FC = () => {
 
     // Device nodes
     topology?.nodes.forEach((n) => {
-      const dev = deviceMap[n.device_id]
+      const dev = deviceMap[n.id]
       if (!dev || dev.plan_x == null || dev.plan_y == null) return
       const collapsedByCabinet = dev.cabinet_id != null && collapsedCabinets.has(dev.cabinet_id)
       const hidden = !typeFilters[n.device_type] || collapsedByCabinet
-      const checkmkEntry = checkmkStatus ? (checkmkStatus as Record<string, any>)[String(n.device_id)] : null
+      const checkmkEntry = checkmkStatus ? (checkmkStatus as Record<string, any>)[String(n.id)] : null
       result.push({
         id: `device:${n.id}`,
         type: 'device',
@@ -373,11 +373,11 @@ const SiteNetworkMapPage: React.FC = () => {
         draggable: isAdmin,
         hidden,
         data: {
-          label: n.label,
+          label: n.name,
           device_type: n.device_type,
           primary_ip: n.primary_ip,
           status: n.status,
-          device_id: n.device_id,
+          device_id: n.id,
           checkmk_status: checkmkEntry?.state_label ?? null,
           onSelect: setSelectedDeviceId,
         } as DeviceNodeData,
@@ -393,9 +393,9 @@ const SiteNetworkMapPage: React.FC = () => {
   const allEdges = useMemo((): Edge[] => (
     (topology?.edges ?? []).map((e) => ({
       id: `edge:${e.id}`,
-      source: `device:${e.source}`,
-      target: `device:${e.target}`,
-      label: e.label ?? `${e.interface_a} ↔ ${e.interface_b}`,
+      source: `device:${e.source_device_id}`,
+      target: `device:${e.target_device_id}`,
+      label: e.label ?? `${e.source_interface} ↔ ${e.target_interface}`,
       type: 'default',
       style: { stroke: '#6b7280', strokeWidth: 1.5 },
       markerEnd: { type: MarkerType.ArrowClosed, color: '#6b7280', width: 12, height: 12 },
@@ -447,7 +447,7 @@ const SiteNetworkMapPage: React.FC = () => {
   const unpositioned = useMemo(() => {
     const result: Record<string, TopologyNode[]> = {}
     topology?.nodes.forEach((n) => {
-      if (deviceMap[n.device_id]?.plan_x == null) {
+      if (deviceMap[n.id]?.plan_x == null) {
         const label = DEVICE_LABELS[n.device_type] ?? n.device_type
         if (!result[label]) result[label] = []
         result[label].push(n)
@@ -463,7 +463,7 @@ const SiteNetworkMapPage: React.FC = () => {
 
   // ── Selected device info ───────────────────────────────────────────────────
   const selectedNode = useMemo(
-    () => topology?.nodes.find((n) => n.device_id === selectedDeviceId) ?? null,
+    () => topology?.nodes.find((n) => n.id === selectedDeviceId) ?? null,
     [topology, selectedDeviceId]
   )
 
@@ -592,10 +592,10 @@ const SiteNetworkMapPage: React.FC = () => {
                     const c = DEVICE_COLORS[n.device_type] ?? DEVICE_COLORS.other
                     return (
                       <div
-                        key={n.device_id}
+                        key={n.id}
                         draggable={isAdmin}
                         onDragStart={(e) => {
-                          e.dataTransfer.setData('deviceId', String(n.device_id))
+                          e.dataTransfer.setData('deviceId', String(n.id))
                           e.dataTransfer.effectAllowed = 'move'
                         }}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-gray-700
@@ -603,7 +603,7 @@ const SiteNetworkMapPage: React.FC = () => {
                           ${isAdmin ? 'cursor-grab hover:bg-primary-50 hover:border-primary-300 active:cursor-grabbing' : 'cursor-default'}`}
                       >
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.dot}`} />
-                        <span className="truncate">{n.label}</span>
+                        <span className="truncate">{n.name}</span>
                       </div>
                     )
                   })}
@@ -622,7 +622,7 @@ const SiteNetworkMapPage: React.FC = () => {
                   className="text-primary-400 hover:text-primary-600 text-xs leading-none"
                 >✕</button>
               </div>
-              <div className="text-sm font-semibold text-gray-900 truncate mb-0.5">{selectedNode.label}</div>
+              <div className="text-sm font-semibold text-gray-900 truncate mb-0.5">{selectedNode.name}</div>
               <div className="text-xs text-gray-500 space-y-0.5">
                 <div>{DEVICE_LABELS[selectedNode.device_type] ?? selectedNode.device_type}</div>
                 {selectedNode.primary_ip && <div className="font-mono">{selectedNode.primary_ip}</div>}
@@ -630,7 +630,7 @@ const SiteNetworkMapPage: React.FC = () => {
                 {selectedNode.site_name && <div>Sede: {selectedNode.site_name}</div>}
               </div>
               <Link
-                to={`/dispositivi/${selectedNode.device_id}`}
+                to={`/dispositivi/${selectedNode.id}`}
                 className="mt-2 block text-center text-xs text-primary-600 hover:text-primary-800 font-medium hover:underline"
               >
                 Vai al dispositivo →

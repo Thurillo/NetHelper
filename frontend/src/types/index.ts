@@ -559,24 +559,31 @@ export interface AuditLog {
 // ============================================================
 
 export interface TopologyNode {
-  id: string
-  label: string
+  id: number
+  name: string
+  label: string       // alias for name
+  device_id: number   // alias for id
   device_type: DeviceType
-  device_id: number
   primary_ip: string | null
+  cabinet_id: number | null
   cabinet_name: string | null
+  site_id: number | null
   site_name: string | null
   status: DeviceStatus
 }
 
 export interface TopologyEdge {
-  id: string
-  source: string
-  target: string
+  id: number
+  source_device_id: number
+  target_device_id: number
+  source: string      // source_device_id as string
+  target: string      // target_device_id as string
+  source_interface: string
+  target_interface: string
+  interface_a: string // alias for source_interface
+  interface_b: string // alias for target_interface
   cable_type: CableType | null
   label: string | null
-  interface_a: string
-  interface_b: string
 }
 
 export interface TopologyGraph {
