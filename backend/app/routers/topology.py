@@ -246,6 +246,7 @@ async def create_topology_map(
         name=body.name,
         site_id=body.site_id,
         created_by_id=current_user.id,
+        background_image_url=body.background_image_url,
         layout=None,
     )
     db.add(tmap)
@@ -284,6 +285,8 @@ async def update_topology_map(
         tmap.site_id = body.site_id
     elif "site_id" in body.model_fields_set:
         tmap.site_id = None
+    if "background_image_url" in body.model_fields_set:
+        tmap.background_image_url = body.background_image_url
     db.add(tmap)
     await db.flush()
     await db.refresh(tmap)
