@@ -9,6 +9,7 @@ import RackDetailPage from './pages/RackDetailPage'
 import DevicesPage from './pages/DevicesPage'
 import DeviceDetailPage from './pages/DeviceDetailPage'
 import TopologyPage from './pages/TopologyPage'
+import { PageErrorBoundary } from './components/common/PageErrorBoundary'
 import PatchPanelsPage from './pages/PatchPanelsPage'
 import SwitchesPage from './pages/SwitchesPage'
 import PatchPanelDetailPage from './pages/PatchPanelDetailPage'
@@ -42,7 +43,7 @@ const App: React.FC = () => {
         <Route path="armadi/:id" element={<RackDetailPage />} />
         <Route path="dispositivi" element={<DevicesPage />} />
         <Route path="dispositivi/:id" element={<DeviceDetailPage />} />
-        <Route path="topologia" element={<TopologyPage />} />
+        <Route path="topologia" element={<PageErrorBoundary><TopologyPage /></PageErrorBoundary>} />
         <Route path="patch-panel" element={<PatchPanelsPage />} />
         <Route path="switch" element={<SwitchesPage />} />
         <Route path="connessioni" element={<ConnectionsPage />} />
