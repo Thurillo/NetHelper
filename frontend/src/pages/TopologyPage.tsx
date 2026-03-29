@@ -915,6 +915,11 @@ const TopologyPage: React.FC = () => {
               onNodeDragStop={onNodeDragStop}
               isDraggable={isAdmin && !!selectedMapId}
               backgroundImageUrl={activeMap?.background_image_url}
+              selectedNodeId={
+                selectedDeviceId ? `device:${selectedDeviceId}`
+                : selectedCabinetId ? `cabinet:${selectedCabinetId}`
+                : null
+              }
             />
           )}
         </ReactFlowProvider>

@@ -238,13 +238,17 @@ const edgeTypesMap: EdgeTypes = {
 }
 
 // ─── AutoFitView: re-fit viewport when container resizes ──────────────────────
+// Suppressed when a node is selected (panel open changes canvas width → don't re-fit)
 
-const AutoFitView: React.FC = () => {
+const AutoFitView: React.FC<{ suppress: boolean }> = ({ suppress }) => {
   const { fitView } = useReactFlow()
+  const suppressRef = React.useRef(suppress)
+  suppressRef.current = suppress
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(() => {
+      if (suppressRef.current) return
       clearTimeout(timer)
       timer = setTimeout(() => fitView({ padding: 0.15, duration: 200 }), 150)
     })
@@ -252,6 +256,25 @@ const AutoFitView: React.FC = () => {
     if (el) observer.observe(el)
     return () => { observer.disconnect(); clearTimeout(timer) }
   }, [fitView])
+
+  return null
+}
+
+// ─── CenterOnSelect: pan to selected node without changing zoom ───────────────
+
+const CenterOnSelect: React.FC<{ selectedNodeId: string | null }> = ({ selectedNodeId }) => {
+  const { setCenter, getZoom } = useReactFlow()
+  const node = useInternalNode(selectedNodeId ?? '')
+
+  useEffect(() => {
+    if (!selectedNodeId || !node) return
+    const w = node.measured?.width ?? 140
+    const h = node.measured?.height ?? 40
+    const cx = node.internals.positionAbsolute.x + w / 2
+    const cy = node.internals.positionAbsolute.y + h / 2
+    setCenter(cx, cy, { zoom: getZoom(), duration: 300 })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId])
 
   return null
 }
@@ -266,6 +289,7 @@ interface TopologyGraphProps {
   onNodeDragStop?: (e: React.MouseEvent, node: Node) => void
   isDraggable?: boolean
   backgroundImageUrl?: string | null
+  selectedNodeId?: string | null
 }
 
 const BG_W = 1600
@@ -279,6 +303,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
   onNodeDragStop,
   isDraggable = false,
   backgroundImageUrl,
+  selectedNodeId = null,
 }) => {
   const handleNodeDragStop = useCallback(
     (e: React.MouseEvent, node: Node) => {
@@ -320,7 +345,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         maxZoom={2}
         deleteKeyCode={null}
       >
-        <AutoFitView />
+        <AutoFitView suppress={selectedNodeId !== null} />
+        <CenterOnSelect selectedNodeId={selectedNodeId} />
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e5e7eb" />
         <Controls showInteractive={false} />
         <MiniMap
