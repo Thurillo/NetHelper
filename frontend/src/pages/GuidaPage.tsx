@@ -407,17 +407,46 @@ const sections: Section[] = [
   {
     id: 'topology',
     icon: <GitBranch size={18} />,
-    title: 'Topologia — Mappa visuale della rete',
+    title: 'Topologia — Mappe interattive della rete',
     content: (
       <>
-        <p>Il grafo di topologia mostra tutti i dispositivi collegati tramite cavi registrati nel sistema.</p>
+        <p>La pagina Topologia permette di creare mappe interattive con posizioni persistenti, visibilità per dispositivo e navigazione avanzata.</p>
+
+        <p className="font-medium mt-3">Mappe:</p>
         <ul className="list-disc list-inside space-y-1 ml-2">
-          <li><strong>Nodi</strong> = dispositivi, colorati per tipo</li>
-          <li><strong>Archi</strong> = cavi (rame, fibra, DAC…)</li>
-          <li><strong>Hover</strong> su un nodo → nome, IP, armadio, sede</li>
-          <li><strong>Click</strong> su un nodo → apre il dettaglio dispositivo</li>
-          <li>Filtri per sede e per tipo dispositivo</li>
+          <li>Selezionare una mappa dal menu a tendina, oppure crearne una nuova con <strong>+ Nuova mappa</strong></li>
+          <li>Ogni mappa ha un layout indipendente — utile per mappe tematiche o per sede</li>
+          <li>Gli admin possono eliminare una mappa con l'icona 🗑 nella toolbar</li>
         </ul>
+
+        <p className="font-medium mt-3">Sidebar sinistra:</p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li>Dispositivi raggruppati per tipo (Router, Switch, Patch Panel…) con intestazioni collassabili</li>
+          <li>Icona <strong>👁</strong> per mostrare/nascondere singoli nodi dalla mappa (solo Admin con mappa selezionata)</li>
+          <li>Selezionando un dispositivo appare la lista dei vicini diretti con toggle rapido visibilità</li>
+          <li>Barra di ricerca per filtrare per nome, IP o MAC — nodi trovati evidenziati in giallo</li>
+        </ul>
+
+        <p className="font-medium mt-3">Archi e connessioni:</p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li><strong>Archi solidi</strong> — collegamento fisico registrato nel sistema</li>
+          <li><strong>Archi tratteggiati</strong> — arco virtuale: il nodo intermedio è nascosto, la connessione "salta" al nodo visibile successivo</li>
+          <li>Cliccando un nodo, i suoi archi vengono evidenziati; gli altri si opacizzano</li>
+        </ul>
+
+        <p className="font-medium mt-3">Posizionamento (solo Admin):</p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li>Trascinare i nodi per riposizionarli — salvati automaticamente dopo 1,5 secondi</li>
+          <li>Pulsante <strong>Salva</strong> per salvare immediatamente</li>
+          <li><strong>Ctrl+Z</strong> / <strong>Ctrl+Y</strong> (oppure pulsanti ↩↪ nella toolbar) per annullare/ripetere fino a 50 passi di layout</li>
+        </ul>
+
+        <p className="font-medium mt-3">Export:</p>
+        <ul className="list-disc list-inside space-y-1 ml-2">
+          <li>Pulsanti <strong>PNG</strong> e <strong>SVG</strong> nella toolbar per esportare la mappa come immagine</li>
+          <li>L'immagine include solo i nodi visibili, auto-dimensionata al contenuto</li>
+        </ul>
+
         <InfoBox color="yellow">
           La topologia mostra solo i collegamenti registrati manualmente o rilevati via LLDP/CDP.
           Eseguire una scan SNMP LLDP per popolare automaticamente i collegamenti.

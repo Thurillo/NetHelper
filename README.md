@@ -32,7 +32,7 @@ NetHelper è un'alternativa semplificata a NetBox, pensata per reti di piccole e
 | 🔎 **Ricerca globale** | Barra di ricerca ⌘K per trovare qualsiasi dispositivo per nome, IP o MAC |
 | 🏗️ **Armadi rack** | Diagramma visuale con colori per tipo dispositivo |
 | 🔌 **Patch panel** | Panel virtuali con etichette porte personalizzate e stanza di destinazione |
-| 🗺️ **Topologia** | Mappa force-directed dei collegamenti tra dispositivi |
+| 🗺️ **Topologia** | Mappe interattive multi-layout: posizioni drag-and-drop persistenti, visibilità per dispositivo, edge transitivi su nodi nascosti, evidenziazione connessioni al click, Undo/Redo (Ctrl+Z), export PNG/SVG |
 | 📡 **VLAN** | Gestione VLAN con collegamento a interfacce e prefissi |
 | 🔢 **IPAM** | Gestione prefissi/pool IP, utilizzo in percentuale, IPs liberi |
 | ⚠️ **Conflitti** | Scansioni periodiche generano conflitti da accettare/rifiutare — nessuna scrittura automatica |
@@ -417,11 +417,37 @@ Le scansioni periodiche **non sovrascrivono** i dati esistenti. Se rilevano diff
 
 ### Topologia
 
-Grafo interattivo force-directed di tutti i dispositivi collegati:
-- **Nodi** = dispositivi colorati per tipo
-- **Archi** = cavi (con tipo: Cat6, Fibra, DAC…)
-- **Hover** su un nodo → mostra nome, IP, armadio, sede
-- **Filtri** per sede e tipo dispositivo
+Mappe topologiche interattive basate su ReactFlow, con posizioni persistenti per mappa.
+
+**Selezione mappa:**
+- Scegliere una mappa dal menu a tendina in alto, oppure crearne una nuova con **+ Nuova mappa**
+- Ogni mappa ha un layout indipendente — è possibile creare mappe tematiche (es. "Sede A", "Solo Switch")
+- Gli admin possono eliminare una mappa con l'icona 🗑 nella toolbar
+
+**Navigazione:**
+- **Zoom** con rotellina del mouse o pulsanti ±
+- **Pan** trascinando da un'area vuota
+- **Minimap** in basso a destra per orientarsi
+- Cliccare un nodo per aprire il pannello dettaglio (floating, non ridimensiona la mappa)
+
+**Sidebar sinistra:**
+- Dispositivi raggruppati per tipo (Router, Switch, Patch Panel…) con intestazioni collassabili
+- Icona 👁 per mostrare/nascondere singoli dispositivi dalla mappa (solo Admin con mappa selezionata)
+- Selezionando un dispositivo appare la lista dei vicini diretti con toggle rapido visibilità
+- Barra di ricerca per filtrare per nome, IP o MAC — nodi trovati evidenziati in giallo
+
+**Archi:**
+- **Archi solidi** = collegamento fisico registrato nel sistema
+- **Archi tratteggiati** = arco virtuale: il nodo intermedio è nascosto, la connessione "salta" al nodo visibile successivo
+- Cliccare un nodo evidenzia i suoi archi attivi, opacizza gli altri
+
+**Posizionamento (solo Admin):**
+- Trascinare i nodi sulla mappa — posizioni salvate automaticamente dopo 1,5 s
+- Pulsante **Salva** per forzare il salvataggio immediato
+- **Ctrl+Z** / **Ctrl+Y** (oppure pulsanti ↩ ↪ nella toolbar) per Annulla/Ripeti fino a 50 passi
+
+**Export:**
+- Pulsanti **PNG** e **SVG** nella toolbar per esportare la mappa corrente come immagine
 
 ---
 
