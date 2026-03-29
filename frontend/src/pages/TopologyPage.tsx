@@ -564,7 +564,7 @@ const TopologyPage: React.FC = () => {
           source: ce.src,
           target: ce.tgt,
           label: ce.label,
-          type: 'default',
+          type: 'floating',
           style: { stroke: '#6b7280', strokeWidth: 1.5 },
           markerEnd: { type: MarkerType.ArrowClosed, color: '#6b7280', width: 10, height: 10 },
           markerStart: { type: MarkerType.ArrowClosed, color: '#6b7280', width: 10, height: 10 },
@@ -578,7 +578,7 @@ const TopologyPage: React.FC = () => {
         id: `virt:${pairKey}`,
         source: ce.src,
         target: ce.tgt,
-        type: 'default',
+        type: 'floating',
         style: { stroke: '#9ca3af', strokeWidth: 1, strokeDasharray: '5,4' },
       }
     })

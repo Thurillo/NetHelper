@@ -7,10 +7,16 @@ import {
   MiniMap,
   Handle,
   Position,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getStraightPath,
+  useInternalNode,
   useReactFlow,
   type Node,
   type Edge,
+  type EdgeProps,
   type NodeTypes,
+  type EdgeTypes,
   type OnNodesChange,
   type OnEdgesChange,
 } from '@xyflow/react'
@@ -154,10 +160,81 @@ const BgImageNode = memo(({ data }: { data: BgImageNodeData }) => (
 ))
 BgImageNode.displayName = 'BgImageNode'
 
+// ─── Floating edge: exits from the nearest point on each node's border ────────
+
+function getNodeBorderPoint(
+  cx: number, cy: number, w: number, h: number,
+  tx: number, ty: number,
+) {
+  const dx = tx - cx, dy = ty - cy
+  if (dx === 0 && dy === 0) return { x: cx, y: cy }
+  const scaleX = dx !== 0 ? (w / 2) / Math.abs(dx) : Infinity
+  const scaleY = dy !== 0 ? (h / 2) / Math.abs(dy) : Infinity
+  const scale = Math.min(scaleX, scaleY)
+  return { x: cx + dx * scale, y: cy + dy * scale }
+}
+
+const FloatingEdge = memo(({
+  id, source, target, style, markerEnd, markerStart, label, labelStyle, labelBgStyle, labelBgPadding,
+}: EdgeProps) => {
+  const sourceNode = useInternalNode(source)
+  const targetNode = useInternalNode(target)
+  if (!sourceNode || !targetNode) return null
+
+  const sw = sourceNode.measured?.width ?? 140
+  const sh = sourceNode.measured?.height ?? 40
+  const tw = targetNode.measured?.width ?? 140
+  const th = targetNode.measured?.height ?? 40
+
+  const scx = sourceNode.internals.positionAbsolute.x + sw / 2
+  const scy = sourceNode.internals.positionAbsolute.y + sh / 2
+  const tcx = targetNode.internals.positionAbsolute.x + tw / 2
+  const tcy = targetNode.internals.positionAbsolute.y + th / 2
+
+  const src = getNodeBorderPoint(scx, scy, sw, sh, tcx, tcy)
+  const tgt = getNodeBorderPoint(tcx, tcy, tw, th, scx, scy)
+
+  const [edgePath, labelX, labelY] = getStraightPath({
+    sourceX: src.x, sourceY: src.y,
+    targetX: tgt.x, targetY: tgt.y,
+  })
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} markerStart={markerStart} />
+      {label && (
+        <EdgeLabelRenderer>
+          <div
+            className="nodrag nopan"
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'all',
+              background: (labelBgStyle as any)?.fill ?? 'white',
+              opacity: (labelBgStyle as any)?.fillOpacity ?? 0.85,
+              padding: labelBgPadding ? `${(labelBgPadding as number[])[1]}px ${(labelBgPadding as number[])[0]}px` : '2px 4px',
+              borderRadius: 3,
+              fontSize: (labelStyle as any)?.fontSize ?? 9,
+              color: (labelStyle as any)?.fill ?? '#6b7280',
+            }}
+          >
+            {label as string}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
+})
+FloatingEdge.displayName = 'FloatingEdge'
+
 const nodeTypesWithBg: NodeTypes = {
   topologyDevice: TopologyDeviceNode as unknown as NodeTypes['topologyDevice'],
   topologyCabinet: TopologyCabinetNode as unknown as NodeTypes['topologyCabinet'],
   bgImage: BgImageNode as unknown as NodeTypes['bgImage'],
+}
+
+const edgeTypesMap: EdgeTypes = {
+  floating: FloatingEdge as unknown as EdgeTypes['floating'],
 }
 
 // ─── AutoFitView: re-fit viewport when container resizes ──────────────────────
@@ -235,6 +312,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         onEdgesChange={onEdgesChange}
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypesWithBg}
+        edgeTypes={edgeTypesMap}
         nodesDraggable={isDraggable}
         fitView
         fitViewOptions={{ padding: 0.15 }}
