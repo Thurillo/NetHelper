@@ -557,32 +557,45 @@ const TopologyPage: React.FC = () => {
       visibilityMap,
       cabinetVisibilityMap,
     )
+    const selKey = selectedDeviceId ? `device:${selectedDeviceId}` : null
+    const selCabKey = selectedCabinetId ? `cabinet:${selectedCabinetId}` : null
+    const activeKey = selKey ?? selCabKey
+    const hasSelection = activeKey !== null
+
     return collapsed.map((ce) => {
+      const isActive = hasSelection && (ce.src === activeKey || ce.tgt === activeKey)
+      const isDimmed = hasSelection && !isActive
+
       if (!ce.isVirtual) {
+        const stroke = isActive ? '#2563eb' : '#6b7280'
+        const width  = isActive ? 2.5 : 1.5
+        const opacity = isDimmed ? 0.15 : 1
         return {
           id: `edge:${ce.realEdgeId}`,
           source: ce.src,
           target: ce.tgt,
-          label: ce.label,
+          label: isActive ? ce.label : undefined,
           type: 'floating',
-          style: { stroke: '#6b7280', strokeWidth: 1.5 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#6b7280', width: 10, height: 10 },
-          markerStart: { type: MarkerType.ArrowClosed, color: '#6b7280', width: 10, height: 10 },
-          labelStyle: { fontSize: 9, fill: '#6b7280' },
-          labelBgStyle: { fill: 'white', fillOpacity: 0.85 },
+          style: { stroke, strokeWidth: width, opacity },
+          markerEnd:   { type: MarkerType.ArrowClosed, color: stroke, width: 10, height: 10 },
+          markerStart: { type: MarkerType.ArrowClosed, color: stroke, width: 10, height: 10 },
+          labelStyle:    { fontSize: 9, fill: stroke },
+          labelBgStyle:  { fill: 'white', fillOpacity: 0.9 },
           labelBgPadding: [3, 3] as [number, number],
+          zIndex: isActive ? 10 : 0,
         }
       }
       const pairKey = [ce.src, ce.tgt].sort().join('|')
+      const opacity = isDimmed ? 0.1 : 1
       return {
         id: `virt:${pairKey}`,
         source: ce.src,
         target: ce.tgt,
         type: 'floating',
-        style: { stroke: '#9ca3af', strokeWidth: 1, strokeDasharray: '5,4' },
+        style: { stroke: '#9ca3af', strokeWidth: isActive ? 1.5 : 1, strokeDasharray: '5,4', opacity },
       }
     })
-  }, [topology, visibilityMap, cabinetVisibilityMap])
+  }, [topology, visibilityMap, cabinetVisibilityMap, selectedDeviceId, selectedCabinetId])
 
   const [edges, setEdges, onEdgesChange] = useEdgesState(rfEdges)
 
