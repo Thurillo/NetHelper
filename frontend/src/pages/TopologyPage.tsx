@@ -68,19 +68,24 @@ type CollapsedEdge = {
   label?: string
 }
 
-function buildCollapsedEdges(
+type TopologyAdjacency = {
+  adj: Map<string, string[]>
+  realPairKeys: Map<string, { id: number; label: string }>
+  allKeys: Set<string>
+  topoEdges: Array<{ id: number; source_device_id: number; target_device_id: number; source_interface: string; target_interface: string }>
+}
+
+/** Phase 1 — topology-stable: builds adjacency structures from topology data only.
+ *  This is cheap to memoize separately so it only rebuilds when topology changes. */
+function buildAdjacency(
   topoEdges: Array<{ id: number; source_device_id: number; target_device_id: number; source_interface: string; target_interface: string }>,
   topoNodes: TopologyNode[],
-  visibilityMap: Record<number, boolean>,
-  cabinetVisibilityMap: Record<number, boolean>,
-): CollapsedEdge[] {
-  // Build undirected adjacency (real edges + implicit device→cabinet)
+): TopologyAdjacency {
   const adj = new Map<string, string[]>()
   const push = (a: string, b: string) => {
     adj.set(a, [...(adj.get(a) ?? []), b])
     adj.set(b, [...(adj.get(b) ?? []), a])
   }
-
   for (const e of topoEdges) {
     push(`device:${e.source_device_id}`, `device:${e.target_device_id}`)
   }
@@ -89,18 +94,27 @@ function buildCollapsedEdges(
       push(`device:${n.id}`, `cabinet:${n.cabinet_id}`)
     }
   }
+  const realPairKeys = new Map<string, { id: number; label: string }>()
+  for (const e of topoEdges) {
+    const key = [`device:${e.source_device_id}`, `device:${e.target_device_id}`].sort().join('|')
+    realPairKeys.set(key, { id: e.id, label: `${e.source_interface} ↔ ${e.target_interface}` })
+  }
+  return { adj, realPairKeys, allKeys: new Set(adj.keys()), topoEdges }
+}
+
+/** Phase 2 — visibility-dependent: BFS through hidden nodes to find virtual edges.
+ *  Receives the pre-built adjacency so it avoids re-iterating topology data. */
+function computeCollapsedEdges(
+  adjacency: TopologyAdjacency,
+  visibilityMap: Record<number, boolean>,
+  cabinetVisibilityMap: Record<number, boolean>,
+): CollapsedEdge[] {
+  const { adj, realPairKeys, allKeys, topoEdges } = adjacency
 
   const isVisible = (key: string): boolean => {
     if (key.startsWith('device:')) return visibilityMap[parseInt(key.slice(7), 10)] ?? true
     if (key.startsWith('cabinet:')) return cabinetVisibilityMap[parseInt(key.slice(8), 10)] ?? true
     return true
-  }
-
-  // Map of real edge pair keys for dedup
-  const realPairKeys = new Map<string, { id: number; label: string }>()
-  for (const e of topoEdges) {
-    const key = [`device:${e.source_device_id}`, `device:${e.target_device_id}`].sort().join('|')
-    realPairKeys.set(key, { id: e.id, label: `${e.source_interface} ↔ ${e.target_interface}` })
   }
 
   const result: CollapsedEdge[] = []
@@ -115,7 +129,6 @@ function buildCollapsedEdges(
 
   // Virtual edges: BFS from each visible node through hidden nodes
   const seenVirtual = new Set<string>()
-  const allKeys = new Set(adj.keys())
 
   for (const startKey of allKeys) {
     if (!isVisible(startKey)) continue
@@ -123,7 +136,6 @@ function buildCollapsedEdges(
     const visited = new Set<string>([startKey])
     const queue: string[] = []
 
-    // Seed: hidden direct neighbors of startKey
     for (const nb of adj.get(startKey) ?? []) {
       if (!visited.has(nb) && !isVisible(nb)) {
         visited.add(nb)
@@ -628,12 +640,17 @@ const TopologyPage: React.FC = () => {
     return map
   }, [cabinets, nodes, effectiveLayout])
 
+  // ── Adjacency (stable — only rebuilds when topology data changes) ────────────
+  const adjacencyData = useMemo(
+    () => topology ? buildAdjacency(topology.edges, topology.nodes) : null,
+    [topology]
+  )
+
   // ── Build ReactFlow edges (with transitivity through hidden nodes) ────────────
   const rfEdges = useMemo((): Edge[] => {
-    if (!topology) return []
-    const collapsed = buildCollapsedEdges(
-      topology.edges,
-      topology.nodes,
+    if (!topology || !adjacencyData) return []
+    const collapsed = computeCollapsedEdges(
+      adjacencyData,
       visibilityMap,
       cabinetVisibilityMap,
     )
@@ -675,7 +692,7 @@ const TopologyPage: React.FC = () => {
         style: { stroke: '#9ca3af', strokeWidth: isActive ? 1.5 : 1, strokeDasharray: '5,4', opacity },
       }
     })
-  }, [topology, visibilityMap, cabinetVisibilityMap, selectedDeviceId, selectedCabinetId])
+  }, [adjacencyData, visibilityMap, cabinetVisibilityMap, selectedDeviceId, selectedCabinetId])
 
   const [edges, setEdges, onEdgesChange] = useEdgesState(rfEdges)
 
