@@ -11,14 +11,14 @@ import {
 import '@xyflow/react/dist/style.css'
 import {
   GitBranch, Save, Search, X, Trash2, Plus, Eye, EyeOff, LayoutDashboard,
-  ChevronDown, ChevronRight, Undo2, Redo2,
+  ChevronDown, ChevronRight, Undo2, Redo2, Download,
 } from 'lucide-react'
 import { topologyApi, topologyMapsApi } from '../api/topology'
 import { cabinetsApi } from '../api/cabinets'
 import { checkmkApi } from '../api/checkmk'
 import { useAuthStore } from '../store/authStore'
 import { useTopologyMaps, useTopologyMap } from '../hooks/useTopology'
-import TopologyGraph, { DEVICE_COLORS } from '../components/topology/TopologyGraph'
+import TopologyGraph, { DEVICE_COLORS, type TopologyGraphHandle } from '../components/topology/TopologyGraph'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../components/common/Badge'
 import CheckMKBadge from '../components/common/CheckMKBadge'
 import DeviceDetailModal from '../components/topology/DeviceDetailModal'
@@ -274,6 +274,7 @@ const TopologyPage: React.FC = () => {
   const dirtyLayoutRef = useRef<Record<string, { x: number; y: number; visible: boolean }>>({})
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoLayoutRef = useRef<Record<string, TopologyMapNodeLayout> | null>(null)
+  const topologyGraphRef = useRef<TopologyGraphHandle>(null)
   const historyPastRef = useRef<Array<Record<string, { x: number; y: number; visible: boolean }>>>([])
   const historyFutureRef = useRef<Array<Record<string, { x: number; y: number; visible: boolean }>>>([])
   const [historySize, setHistorySize] = useState({ past: 0, future: 0 })
@@ -787,6 +788,26 @@ const TopologyPage: React.FC = () => {
             </button>
           </div>
         )}
+        {selectedMapId && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => topologyGraphRef.current?.exportPng(activeMap?.name ?? 'topology')}
+              title="Esporta come PNG"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Download size={14} />
+              PNG
+            </button>
+            <button
+              onClick={() => topologyGraphRef.current?.exportSvg(activeMap?.name ?? 'topology')}
+              title="Esporta come SVG"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Download size={14} />
+              SVG
+            </button>
+          </div>
+        )}
         {hasDirty && isAdmin && (
           <button
             onClick={saveLayout}
@@ -1025,6 +1046,7 @@ const TopologyPage: React.FC = () => {
             </div>
           ) : (
             <TopologyGraph
+              ref={topologyGraphRef}
               nodes={nodes}
               edges={edges}
               onNodesChange={onNodesChange}

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect } from 'react'
+import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle } from 'react'
 import {
   ReactFlow,
   Background,
@@ -10,6 +10,8 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getStraightPath,
+  getNodesBounds,
+  getViewportForBounds,
   useInternalNode,
   useReactFlow,
   type Node,
@@ -20,6 +22,7 @@ import {
   type OnNodesChange,
   type OnEdgesChange,
 } from '@xyflow/react'
+import { toPng, toSvg } from 'html-to-image'
 import '@xyflow/react/dist/style.css'
 import { LayoutDashboard } from 'lucide-react'
 import CheckMKBadge from '../common/CheckMKBadge'
@@ -279,6 +282,77 @@ const CenterOnSelect: React.FC<{ selectedNodeId: string | null }> = ({ selectedN
   return null
 }
 
+// ─── Export handle ────────────────────────────────────────────────────────────
+
+export interface TopologyGraphHandle {
+  exportPng: (filename?: string) => Promise<void>
+  exportSvg: (filename?: string) => Promise<void>
+}
+
+/** Placed inside <ReactFlow> so useReactFlow() has access to nodes + viewport. */
+const ExportHelper = forwardRef<TopologyGraphHandle>((_, ref) => {
+  const { getNodes } = useReactFlow()
+
+  useImperativeHandle(ref, () => ({
+    async exportPng(filename = 'topology') {
+      const visibleNodes = getNodes().filter((n) => !n.hidden && n.id !== '__bg__')
+      if (visibleNodes.length === 0) return
+      const bounds = getNodesBounds(visibleNodes)
+      const pad = 60
+      const imgW = Math.max(Math.round(bounds.width) + pad * 2, 800)
+      const imgH = Math.max(Math.round(bounds.height) + pad * 2, 600)
+      const vp = getViewportForBounds(bounds, imgW, imgH, 0.05, 2, pad)
+      const el = document.querySelector<HTMLElement>('.react-flow__viewport')
+      if (!el) return
+      const dataUrl = await toPng(el, {
+        backgroundColor: '#ffffff',
+        width: imgW,
+        height: imgH,
+        style: {
+          width: `${imgW}px`,
+          height: `${imgH}px`,
+          transform: `translate(${vp.x}px,${vp.y}px) scale(${vp.zoom})`,
+          transformOrigin: '0 0',
+        },
+      })
+      const a = document.createElement('a')
+      a.download = `${filename}.png`
+      a.href = dataUrl
+      a.click()
+    },
+
+    async exportSvg(filename = 'topology') {
+      const visibleNodes = getNodes().filter((n) => !n.hidden && n.id !== '__bg__')
+      if (visibleNodes.length === 0) return
+      const bounds = getNodesBounds(visibleNodes)
+      const pad = 60
+      const imgW = Math.max(Math.round(bounds.width) + pad * 2, 800)
+      const imgH = Math.max(Math.round(bounds.height) + pad * 2, 600)
+      const vp = getViewportForBounds(bounds, imgW, imgH, 0.05, 2, pad)
+      const el = document.querySelector<HTMLElement>('.react-flow__viewport')
+      if (!el) return
+      const dataUrl = await toSvg(el, {
+        backgroundColor: '#ffffff',
+        width: imgW,
+        height: imgH,
+        style: {
+          width: `${imgW}px`,
+          height: `${imgH}px`,
+          transform: `translate(${vp.x}px,${vp.y}px) scale(${vp.zoom})`,
+          transformOrigin: '0 0',
+        },
+      })
+      const a = document.createElement('a')
+      a.download = `${filename}.svg`
+      a.href = dataUrl
+      a.click()
+    },
+  }))
+
+  return null
+})
+ExportHelper.displayName = 'ExportHelper'
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 interface TopologyGraphProps {
@@ -295,7 +369,7 @@ interface TopologyGraphProps {
 const BG_W = 1600
 const BG_H = 1000
 
-const TopologyGraph: React.FC<TopologyGraphProps> = ({
+const TopologyGraph = forwardRef<TopologyGraphHandle, TopologyGraphProps>(({
   nodes,
   edges,
   onNodesChange,
@@ -304,7 +378,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
   isDraggable = false,
   backgroundImageUrl,
   selectedNodeId = null,
-}) => {
+}, ref) => {
   const handleNodeDragStop = useCallback(
     (e: React.MouseEvent, node: Node) => {
       onNodeDragStop?.(e, node)
@@ -345,6 +419,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         maxZoom={2}
         deleteKeyCode={null}
       >
+        <ExportHelper ref={ref} />
         <AutoFitView suppress={selectedNodeId !== null} />
         <CenterOnSelect selectedNodeId={selectedNodeId} />
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e5e7eb" />
@@ -370,6 +445,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       </ReactFlow>
     </div>
   )
-}
+})
+
+TopologyGraph.displayName = 'TopologyGraph'
 
 export default TopologyGraph
