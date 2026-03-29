@@ -11,7 +11,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import {
   GitBranch, Save, Search, X, Trash2, Plus, Eye, EyeOff, LayoutDashboard,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Undo2, Redo2,
 } from 'lucide-react'
 import { topologyApi, topologyMapsApi } from '../api/topology'
 import { cabinetsApi } from '../api/cabinets'
@@ -262,6 +262,9 @@ const TopologyPage: React.FC = () => {
   const dirtyLayoutRef = useRef<Record<string, { x: number; y: number; visible: boolean }>>({})
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoLayoutRef = useRef<Record<string, TopologyMapNodeLayout> | null>(null)
+  const historyPastRef = useRef<Array<Record<string, { x: number; y: number; visible: boolean }>>>([])
+  const historyFutureRef = useRef<Array<Record<string, { x: number; y: number; visible: boolean }>>>([])
+  const [historySize, setHistorySize] = useState({ past: 0, future: 0 })
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const { data: mapList } = useTopologyMaps()
@@ -304,6 +307,12 @@ const TopologyPage: React.FC = () => {
     debounceRef.current = setTimeout(saveLayout, 1500)
   }, [saveLayout])
 
+  const pushHistory = useCallback((snapshot: Record<string, { x: number; y: number; visible: boolean }>) => {
+    historyPastRef.current = [...historyPastRef.current.slice(-49), snapshot]
+    historyFutureRef.current = []
+    setHistorySize({ past: historyPastRef.current.length, future: 0 })
+  }, [])
+
   // ── Effective layout (persisted or auto) ───────────────────────────────────
   const effectiveLayout = useMemo((): Record<string, TopologyMapNodeLayout> => {
     if (!topology) return {}
@@ -317,9 +326,12 @@ const TopologyPage: React.FC = () => {
     return autoLayoutRef.current
   }, [topology, activeMap, cabinets])
 
-  // When map changes, reset auto-layout cache
+  // When map changes, reset auto-layout cache + history
   React.useEffect(() => {
     autoLayoutRef.current = null
+    historyPastRef.current = []
+    historyFutureRef.current = []
+    setHistorySize({ past: 0, future: 0 })
   }, [selectedMapId])
 
   // ── Search matching ────────────────────────────────────────────────────────
@@ -419,10 +431,76 @@ const TopologyPage: React.FC = () => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(rfNodes)
 
+  // ── Undo/Redo (placed after useNodesState so setNodes + effectiveLayout are in scope) ──
+  const captureSnapshot = useCallback(
+    (): Record<string, { x: number; y: number; visible: boolean }> => {
+      const snap = { ...effectiveLayout } as Record<string, { x: number; y: number; visible: boolean }>
+      Object.entries(dirtyLayoutRef.current).forEach(([k, v]) => { snap[k] = v })
+      return snap
+    },
+    [effectiveLayout]
+  )
+
+  const applySnapshot = useCallback(
+    (snapshot: Record<string, { x: number; y: number; visible: boolean }>) => {
+      dirtyLayoutRef.current = { ...snapshot }
+      setHasDirty(true)
+      setNodes((prev) =>
+        prev.map((n) => {
+          const key = n.id.startsWith('cabinet:')
+            ? `cab:${n.id.replace('cabinet:', '')}`
+            : n.id.replace('device:', '')
+          const entry = snapshot[key]
+          if (!entry) return n
+          return { ...n, position: { x: entry.x, y: entry.y }, hidden: !entry.visible }
+        })
+      )
+      scheduleSave()
+    },
+    [setNodes, scheduleSave]
+  )
+
+  const undoLayout = useCallback(() => {
+    if (historyPastRef.current.length === 0) return
+    const current = captureSnapshot()
+    const prev = historyPastRef.current[historyPastRef.current.length - 1]
+    historyPastRef.current = historyPastRef.current.slice(0, -1)
+    historyFutureRef.current = [current, ...historyFutureRef.current.slice(0, 49)]
+    setHistorySize({ past: historyPastRef.current.length, future: historyFutureRef.current.length })
+    applySnapshot(prev)
+  }, [captureSnapshot, applySnapshot])
+
+  const redoLayout = useCallback(() => {
+    if (historyFutureRef.current.length === 0) return
+    const current = captureSnapshot()
+    const next = historyFutureRef.current[0]
+    historyFutureRef.current = historyFutureRef.current.slice(1)
+    historyPastRef.current = [...historyPastRef.current.slice(-49), current]
+    setHistorySize({ past: historyPastRef.current.length, future: historyFutureRef.current.length })
+    applySnapshot(next)
+  }, [captureSnapshot, applySnapshot])
+
+  // Keyboard shortcut: Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!isAdmin || !selectedMapId) return
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undoLayout()
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault()
+        redoLayout()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isAdmin, selectedMapId, undoLayout, redoLayout])
+
   // ── Drag stop handler ──────────────────────────────────────────────────────
   const onNodeDragStop = useCallback(
     (_e: React.MouseEvent, node: Node) => {
       if (!isAdmin || !selectedMapId) return
+      pushHistory(captureSnapshot())
       let key: string
       if (node.id.startsWith('cabinet:')) {
         key = `cab:${node.id.replace('cabinet:', '')}`
@@ -438,13 +516,14 @@ const TopologyPage: React.FC = () => {
       setHasDirty(true)
       scheduleSave()
     },
-    [isAdmin, selectedMapId, effectiveLayout, scheduleSave]
+    [isAdmin, selectedMapId, effectiveLayout, scheduleSave, pushHistory, captureSnapshot]
   )
 
   // ── Toggle device visibility ───────────────────────────────────────────────
   const toggleDeviceVisibility = useCallback(
     (deviceId: number) => {
       if (!isAdmin || !selectedMapId) return
+      pushHistory(captureSnapshot())
       const key = String(deviceId)
       const currentPos = effectiveLayout[key] ?? { x: 0, y: 0 }
       const currentVisible = currentPos.visible ?? true
@@ -457,13 +536,14 @@ const TopologyPage: React.FC = () => {
       )
       scheduleSave()
     },
-    [isAdmin, selectedMapId, effectiveLayout, setNodes, scheduleSave]
+    [isAdmin, selectedMapId, effectiveLayout, setNodes, scheduleSave, pushHistory, captureSnapshot]
   )
 
   // ── Toggle cabinet visibility ──────────────────────────────────────────────
   const toggleCabinetVisibility = useCallback(
     (cabinetId: number) => {
       if (!isAdmin || !selectedMapId) return
+      pushHistory(captureSnapshot())
       const key = `cab:${cabinetId}`
       const currentPos = effectiveLayout[key] ?? { x: 0, y: 0 }
       const currentVisible = currentPos.visible ?? true
@@ -476,7 +556,7 @@ const TopologyPage: React.FC = () => {
       )
       scheduleSave()
     },
-    [isAdmin, selectedMapId, effectiveLayout, setNodes, scheduleSave]
+    [isAdmin, selectedMapId, effectiveLayout, setNodes, scheduleSave, pushHistory, captureSnapshot]
   )
 
   // ── Create map ─────────────────────────────────────────────────────────────
@@ -670,6 +750,26 @@ const TopologyPage: React.FC = () => {
           )}
         </div>
 
+        {isAdmin && selectedMapId && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={undoLayout}
+              disabled={historySize.past === 0}
+              title={`Annulla (Ctrl+Z) — ${historySize.past} passaggi`}
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Undo2 size={14} />
+            </button>
+            <button
+              onClick={redoLayout}
+              disabled={historySize.future === 0}
+              title={`Ripeti (Ctrl+Y) — ${historySize.future} passaggi`}
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Redo2 size={14} />
+            </button>
+          </div>
+        )}
         {hasDirty && isAdmin && (
           <button
             onClick={saveLayout}
