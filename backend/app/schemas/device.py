@@ -58,7 +58,7 @@ class DeviceCreate(BaseModel):
             raise ValueError(f"Formato MAC non valido: '{v}'. Usa XX:XX:XX:XX:XX:XX, XXXX.XXXX.XXXX o simili.")
         return result
 
-    @field_validator('primary_ip', 'management_ip', mode='before')
+    @field_validator('primary_ip', mode='before')
     @classmethod
     def validate_ip_field(cls, v: Optional[str]) -> Optional[str]:
         return _validate_ip(v)
@@ -104,7 +104,7 @@ class DeviceUpdate(BaseModel):
             raise ValueError(f"Formato MAC non valido: '{v}'. Usa XX:XX:XX:XX:XX:XX, XXXX.XXXX.XXXX o simili.")
         return result
 
-    @field_validator('primary_ip', 'management_ip', mode='before')
+    @field_validator('primary_ip', mode='before')
     @classmethod
     def validate_ip_field(cls, v: Optional[str]) -> Optional[str]:
         return _validate_ip(v)
