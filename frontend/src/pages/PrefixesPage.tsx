@@ -107,7 +107,7 @@ const PrefixesPage: React.FC = () => {
                       {prefix.vlan && <Badge variant="blue">VLAN {prefix.vlan.vid}</Badge>}
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
-                      {prefix.site?.name ?? 'Nessuna sede'}{prefix.description ? ` — ${prefix.description}` : ''}
+                      {prefix.site?.name ?? 'Nessuna locazione'}{prefix.description ? ` — ${prefix.description}` : ''}
                     </p>
                   </div>
                   {/* Utilization bar */}
@@ -166,9 +166,9 @@ const PrefixesPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sede</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Locazione</label>
             <select value={form.site_id ?? ''} onChange={(e) => setForm((f) => ({ ...f, site_id: e.target.value ? Number(e.target.value) : undefined }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-              <option value="">-- Nessuna sede --</option>
+              <option value="">-- Nessuna locazione --</option>
               {sitesData?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>

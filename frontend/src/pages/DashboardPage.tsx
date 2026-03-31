@@ -185,7 +185,7 @@ const DashboardPage: React.FC = () => {
           to="/dispositivi"
         />
         <StatCard
-          label="Sedi"
+          label="Locazioni"
           value={stats.sites_count}
           sublabel="armadi"
           subvalue={stats.cabinets_count}

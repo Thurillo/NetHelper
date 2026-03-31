@@ -8,7 +8,7 @@ import { useAuthStore } from '../store/authStore'
 import Modal from '../components/common/Modal'
 import Pagination from '../components/common/Pagination'
 import LoadingSpinner from '../components/common/LoadingSpinner'
-import type { Cabinet, CabinetCreate } from '../types'
+import type { Cabinet, CabinetCreate, SiteCreate } from '../types'
 
 // Device type labels in Italian
 const DEVICE_TYPE_LABELS: Record<string, string> = {
@@ -148,6 +148,9 @@ const CabinetsPage: React.FC = () => {
   const [editing, setEditing] = useState<Cabinet | null>(null)
   const [form, setForm] = useState<CabinetCreate>({ name: '', site_id: siteIdParam ?? 0, u_count: 42 })
   const [error, setError] = useState<string | null>(null)
+  const [showSiteModal, setShowSiteModal] = useState(false)
+  const [siteForm, setSiteForm] = useState<SiteCreate>({ name: '', address: null })
+  const [siteError, setSiteError] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['cabinets', { site_id: siteIdParam, page }],
@@ -160,6 +163,23 @@ const CabinetsPage: React.FC = () => {
     queryFn: () => sitesApi.list({ size: 100 }),
     staleTime: 60_000,
   })
+
+  const createSite = useMutation({
+    mutationFn: (d: SiteCreate) => sitesApi.create(d),
+    onSuccess: (newSite) => {
+      qc.invalidateQueries({ queryKey: ['sites'] })
+      setForm((f) => ({ ...f, site_id: newSite.id }))
+      setShowSiteModal(false)
+      setSiteForm({ name: '', address: null })
+      setSiteError(null)
+    },
+    onError: () => setSiteError('Errore durante la creazione della locazione'),
+  })
+
+  const handleCreateSite = () => {
+    if (!siteForm.name.trim()) { setSiteError('Il nome è obbligatorio'); return }
+    createSite.mutate(siteForm)
+  }
 
   const createCabinet = useMutation({
     mutationFn: (d: CabinetCreate) => cabinetsApi.create(d),
@@ -191,7 +211,7 @@ const CabinetsPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name || !form.site_id) { setError('Nome e sede sono obbligatori'); return }
+    if (!form.name || !form.site_id) { setError('Nome e locazione sono obbligatori'); return }
     if (editing) updateCabinet.mutate({ id: editing.id, data: form })
     else createCabinet.mutate(form)
   }
@@ -255,11 +275,20 @@ const CabinetsPage: React.FC = () => {
             <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sede *</label>
-            <select value={form.site_id} onChange={(e) => setForm((f) => ({ ...f, site_id: Number(e.target.value) }))} required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-              <option value={0}>-- Seleziona sede --</option>
-              {sitesData?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Locazione *</label>
+            <div className="flex gap-1">
+              <select value={form.site_id} onChange={(e) => setForm((f) => ({ ...f, site_id: Number(e.target.value) }))} required className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value={0}>-- Seleziona locazione --</option>
+                {sitesData?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <button type="button" onClick={() => { setSiteForm({ name: '', address: null }); setSiteError(null); setShowSiteModal(true) }}
+                className="px-2 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600" title="Crea nuova locazione">
+                <Plus size={16} />
+              </button>
+            </div>
+            {!sitesData?.items.length && (
+              <p className="text-xs text-amber-600 mt-1">Nessuna locazione disponibile. Creane una con il pulsante +</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Dimensione (U)</label>
@@ -270,6 +299,33 @@ const CabinetsPage: React.FC = () => {
             <input type="text" value={form.description ?? ''} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value || null }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
         </form>
+      </Modal>
+      {/* Inline site creation modal */}
+      <Modal isOpen={showSiteModal} onClose={() => setShowSiteModal(false)} title="Nuova locazione" size="sm"
+        footer={
+          <>
+            <button onClick={() => setShowSiteModal(false)} className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Annulla</button>
+            <button onClick={handleCreateSite} disabled={createSite.isPending} className="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+              {createSite.isPending ? 'Salvataggio...' : 'Crea'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {siteError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{siteError}</p>}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+            <input type="text" value={siteForm.name} onChange={(e) => setSiteForm((p) => ({ ...p, name: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="es. Locazione principale" autoFocus />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Indirizzo (opzionale)</label>
+            <input type="text" value={siteForm.address ?? ''} onChange={(e) => setSiteForm((p) => ({ ...p, address: e.target.value || null }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="es. Via Roma 1, Milano" />
+          </div>
+        </div>
       </Modal>
     </div>
   )

@@ -20,7 +20,7 @@ interface NavItem {
 
 const mainNav: NavItem[] = [
   { to: '/',             icon: <LayoutDashboard size={17} />, label: 'Pannello di controllo' },
-  { to: '/sedi',         icon: <MapPin size={17} />,          label: 'Sedi' },
+  { to: '/sedi',         icon: <MapPin size={17} />,          label: 'Locazioni' },
   { to: '/armadi',       icon: <Server size={17} />,          label: 'Armadi' },
   { to: '/dispositivi',  icon: <Network size={17} />,         label: 'Dispositivi' },
   { to: '/topologia',    icon: <GitBranch size={17} />,       label: 'Topologia' },

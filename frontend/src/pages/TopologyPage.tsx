@@ -1110,7 +1110,7 @@ const TopologyPage: React.FC = () => {
                 )}
                 {selectedNode.site_name && (
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Sede</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Locazione</p>
                     <p className="text-gray-800">{selectedNode.site_name}</p>
                   </div>
                 )}
@@ -1162,7 +1162,7 @@ const TopologyPage: React.FC = () => {
               <div className="space-y-2 text-sm">
                 {(selectedCabinet as any).site?.name && (
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Sede</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Locazione</p>
                     <p className="text-gray-800">{(selectedCabinet as any).site.name}</p>
                   </div>
                 )}
@@ -1211,7 +1211,7 @@ const TopologyPage: React.FC = () => {
                   value={newMapName}
                   onChange={(e) => setNewMapName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateMap()}
-                  placeholder="Es. Sede Principale, Piano 1°…"
+                  placeholder="Es. Locazione Principale, Piano 1°…"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>

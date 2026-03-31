@@ -130,7 +130,7 @@ const PrefixDetailPage: React.FC = () => {
               {prefix.vlan && <Badge variant="blue">VLAN {prefix.vlan.vid} — {prefix.vlan.name}</Badge>}
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {prefix.site?.name ?? 'Nessuna sede'}
+              {prefix.site?.name ?? 'Nessuna locazione'}
               {prefix.description ? ` — ${prefix.description}` : ''}
             </p>
           </div>
@@ -194,7 +194,7 @@ const PrefixDetailPage: React.FC = () => {
                       Vendor <SortIcon col="vendor" />
                     </th>
                     <th className={thClass} onClick={() => handleSort('site')}>
-                      Sede <SortIcon col="site" />
+                      Locazione <SortIcon col="site" />
                     </th>
                     <th className={thClass} onClick={() => handleSort('source')}>
                       Sorgente <SortIcon col="source" />

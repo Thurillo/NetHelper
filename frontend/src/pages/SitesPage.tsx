@@ -118,8 +118,8 @@ const SitesPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sedi</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestisci le sedi dell'infrastruttura</p>
+          <h1 className="text-2xl font-bold text-gray-900">Locazioni</h1>
+          <p className="text-sm text-gray-500 mt-1">Gestisci le sedi dell'infrastruttura di rete</p>
         </div>
         {isAdmin() && (
           <button
@@ -127,7 +127,7 @@ const SitesPage: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
           >
             <Plus size={16} />
-            Nuova Sede
+            Nuova Locazione
           </button>
         )}
       </div>
@@ -141,8 +141,8 @@ const SitesPage: React.FC = () => {
             data={data?.items ?? []}
             keyExtractor={(s) => s.id}
             onRowClick={(s) => navigate(`/armadi?site_id=${s.id}`)}
-            emptyTitle="Nessuna sede"
-            emptyDescription="Crea la prima sede per iniziare."
+            emptyTitle="Nessuna locazione"
+            emptyDescription="Crea la prima locazione per iniziare."
           />
           {data && (
             <Pagination page={page} pages={data.pages} total={data.total} size={data.size} onPageChange={setPage} />
@@ -153,7 +153,7 @@ const SitesPage: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={closeModal}
-        title={editingSite ? 'Modifica sede' : 'Nuova sede'}
+        title={editingSite ? 'Modifica locazione' : 'Nuova locazione'}
         size="md"
         footer={
           <>

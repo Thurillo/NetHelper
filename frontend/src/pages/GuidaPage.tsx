@@ -107,8 +107,8 @@ const sections: Section[] = [
         <p><strong>1. Accesso</strong> — Inserire username e password creati durante l'installazione.</p>
         <p><strong>2. Creare la struttura fisica:</strong></p>
         <ul className="list-disc list-inside space-y-1 ml-2">
-          <li><strong>Sedi</strong> → creare almeno una sede (edificio, piano, sala server)</li>
-          <li><strong>Armadi</strong> → creare gli armadi nella sede con il numero di U rack</li>
+          <li><strong>Locazioni</strong> → creare almeno una locazione (edificio, piano, sala server)</li>
+          <li><strong>Armadi</strong> → creare gli armadi nella locazione con il numero di U rack</li>
         </ul>
         <p><strong>3. Aggiungere i vendor</strong> — In <em>Admin → Vendor</em> verificare che i profili SNMP/SSH
           dei propri apparati siano presenti (Cisco, UniFi, MikroTik, TP-Link…). I vendor principali sono pre-inseriti.
@@ -159,7 +159,7 @@ const sections: Section[] = [
         </ul>
         <InfoBox>
           Per esportare l'inventario: pagina <strong>Dispositivi</strong> → pulsante <strong>CSV</strong> in alto a destra.
-          Il CSV rispetta tutti i filtri attivi (tipo, stato, sede…).
+          Il CSV rispetta tutti i filtri attivi (tipo, stato, locazione…).
         </InfoBox>
       </>
     ),
@@ -321,13 +321,13 @@ const sections: Section[] = [
         <ol className="list-decimal list-inside space-y-1 ml-2">
           <li>Aprire <em>Prefissi IP</em> → <strong>Nuovo prefisso</strong></li>
           <li>Inserire il blocco CIDR (es. <Code>192.168.20.0/24</Code>)</li>
-          <li>Associare opzionalmente a sede e VLAN</li>
+          <li>Associare opzionalmente a locazione e VLAN</li>
           <li>La scheda mostra utilizzo %, IP disponibili e IP assegnati con fonte</li>
         </ol>
         <p className="font-medium mt-2">VLAN:</p>
         <ol className="list-decimal list-inside space-y-1 ml-2">
           <li>Aprire <em>VLAN</em> → <strong>Nuova VLAN</strong></li>
-          <li>Inserire ID (1–4094), nome, sede</li>
+          <li>Inserire ID (1–4094), nome, locazione</li>
           <li>Le VLAN vengono associate alle interfacce automaticamente durante le scan</li>
         </ol>
         <InfoBox>
@@ -373,18 +373,18 @@ const sections: Section[] = [
   {
     id: 'site-map',
     icon: <Map size={18} />,
-    title: 'Planimetria sede — Mappa degli armadi',
+    title: 'Planimetria locazione — Mappa degli armadi',
     content: (
       <>
         <p>
-          Ogni sede può avere una <strong>planimetria</strong> (foto o disegno della sala server)
+          Ogni locazione può avere una <strong>planimetria</strong> (foto o disegno della sala server)
           su cui posizionare visivamente gli armadi rack.
         </p>
         <p className="font-medium mt-2">Come usarla:</p>
         <ol className="list-decimal list-inside space-y-1 ml-2">
-          <li>Aprire <em>Sedi</em> → cliccare <strong>Mappa</strong> su qualsiasi sede</li>
+          <li>Aprire <em>Locazioni</em> → cliccare <strong>Mappa</strong> su qualsiasi locazione</li>
           <li>Click su <strong>Carica planimetria</strong> → selezionare un'immagine (JPG, PNG, WebP)</li>
-          <li>Gli armadi associati alla sede appaiono come marker blu sull'immagine</li>
+          <li>Gli armadi associati alla locazione appaiono come marker blu sull'immagine</li>
           <li>Trascinare i marker nella posizione corretta</li>
           <li>Cliccare <strong>Salva posizioni</strong> per confermare</li>
         </ol>
@@ -398,7 +398,7 @@ const sections: Section[] = [
           ]}
         />
         <InfoBox>
-          Un indicatore verde (●) nella lista Sedi segnala che la planimetria è già caricata per quella sede.
+          Un indicatore verde (●) nella lista Locazioni segnala che la planimetria è già caricata per quella locazione.
           Cliccando su un armadio nella legenda in fondo alla mappa si apre direttamente il diagramma rack.
         </InfoBox>
       </>
@@ -415,7 +415,7 @@ const sections: Section[] = [
         <p className="font-medium mt-3">Mappe:</p>
         <ul className="list-disc list-inside space-y-1 ml-2">
           <li>Selezionare una mappa dal menu a tendina, oppure crearne una nuova con <strong>+ Nuova mappa</strong></li>
-          <li>Ogni mappa ha un layout indipendente — utile per mappe tematiche o per sede</li>
+          <li>Ogni mappa ha un layout indipendente — utile per mappe tematiche o per locazione</li>
           <li>Gli admin possono eliminare una mappa con l'icona 🗑 nella toolbar</li>
         </ul>
 
@@ -633,12 +633,12 @@ systemctl restart nethelper-api nethelper-worker nethelper-beat`}</CodeBlock>
     title: 'Diagramma di rete interattivo',
     content: (
       <>
-        <p>Ogni sede dispone di un diagramma di rete interattivo che sovrappone i dispositivi e le connessioni fisiche (cavi) alla planimetria dell'edificio.</p>
+        <p>Ogni locazione dispone di un diagramma di rete interattivo che sovrappone i dispositivi e le connessioni fisiche (cavi) alla planimetria dell'edificio.</p>
 
         <p className="font-medium mt-3">Come aprire il diagramma:</p>
         <ul>
-          <li>Vai su <strong>Sedi</strong> → nella riga di una sede clicca <strong>Rete</strong></li>
-          <li>Oppure da <strong>Sedi → Mappa</strong>, clicca il pulsante <strong>Diagramma di rete</strong> in alto a destra</li>
+          <li>Vai su <strong>Locazioni</strong> → nella riga di una locazione clicca <strong>Rete</strong></li>
+          <li>Oppure da <strong>Locazioni → Mappa</strong>, clicca il pulsante <strong>Diagramma di rete</strong> in alto a destra</li>
         </ul>
 
         <p className="font-medium mt-3">Posizionare i dispositivi sul canvas (solo Admin):</p>

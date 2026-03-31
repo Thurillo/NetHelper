@@ -9,7 +9,7 @@ import { devicesApi } from '../../api/devices'
 
 const ROUTE_LABELS: Record<string, string> = {
   '': 'Pannello di controllo',
-  'sedi': 'Sedi',
+  'sedi': 'Locazioni',
   'armadi': 'Armadi',
   'dispositivi': 'Dispositivi',
   'topologia': 'Topologia',

@@ -76,7 +76,7 @@ const VlansPage: React.FC = () => {
   const columns: Column<Vlan>[] = [
     { key: 'vid', header: 'ID VLAN', sortable: true, render: (v) => <span className="font-bold font-mono">{v.vid}</span> },
     { key: 'name', header: 'Nome', render: (v) => <span className="font-medium text-gray-900">{v.name}</span> },
-    { key: 'site', header: 'Sede', render: (v) => <span className="text-gray-500 text-xs">{v.site?.name ?? '—'}</span> },
+    { key: 'site', header: 'Locazione', render: (v) => <span className="text-gray-500 text-xs">{v.site?.name ?? '—'}</span> },
     { key: 'status', header: 'Stato', render: (v) => <Badge variant={statusVariant(v.status)}>{v.status}</Badge> },
     { key: 'interfaces_count', header: 'Interfacce', render: (v) => <span>{v.interfaces_count ?? 0}</span> },
     { key: 'prefixes_count', header: 'Prefissi', render: (v) => <span>{v.prefixes_count ?? 0}</span> },
@@ -182,9 +182,9 @@ const VlansPage: React.FC = () => {
             <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sede</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Locazione</label>
             <select value={form.site_id ?? ''} onChange={(e) => setForm((f) => ({ ...f, site_id: e.target.value ? Number(e.target.value) : undefined }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-              <option value="">-- Nessuna sede --</option>
+              <option value="">-- Nessuna locazione --</option>
               {sitesData?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
