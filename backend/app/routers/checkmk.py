@@ -71,6 +71,11 @@ class CheckMKLinkRequest(BaseModel):
     host_name: str
 
 
+class CheckMKInfo(BaseModel):
+    enabled: bool
+    url: str
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -156,6 +161,17 @@ async def _fetch_checkmk_hosts(url: str, username: str, api_key: str) -> list[di
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.get("/info", response_model=CheckMKInfo)
+async def get_info(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _user=Depends(get_current_user),
+):
+    """Return public CheckMK info (enabled flag + base URL) for any authenticated user."""
+    enabled_str = await _get_setting(db, "checkmk.enabled")
+    url = await _get_setting(db, "checkmk.url")
+    return CheckMKInfo(enabled=enabled_str == "true", url=url)
 
 
 @router.get("/settings", response_model=CheckMKSettingsRead)

@@ -32,7 +32,15 @@ export interface CheckMKDeviceStatus {
   address: string
 }
 
+export interface CheckMKInfo {
+  enabled: boolean
+  url: string
+}
+
 export const checkmkApi = {
+  getInfo: (): Promise<CheckMKInfo> =>
+    apiClient.get('/checkmk/info').then((r) => r.data),
+
   getSettings: (): Promise<CheckMKSettingsRead> =>
     apiClient.get('/checkmk/settings').then((r) => r.data),
 

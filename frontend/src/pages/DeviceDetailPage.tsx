@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Edit2, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Link2, Link2Off } from 'lucide-react'
+import { Edit2, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Link2, Link2Off, ExternalLink } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDevice, useDeviceInterfaces, useDeviceIpAddresses, useDeviceMacEntries, useUpdateDevice, useDeleteDevice, useDeviceConnectionsPreview } from '../hooks/useDevices'
 import { cabinetsApi } from '../api/cabinets'
@@ -18,6 +18,7 @@ import ScanJobList from '../components/scan/ScanJobList'
 import ScanResultPanel from '../components/scan/ScanResultPanel'
 import Table, { Column } from '../components/common/Table'
 import { useAuthStore } from '../store/authStore'
+import { useUiStore } from '../store/uiStore'
 import type { NetworkInterface, IpAddress, MacEntry, ScanJob, DeviceStatus, DeviceType } from '../types'
 
 type TabKey = 'interfacce' | 'ip' | 'mac' | 'scansioni'
@@ -30,6 +31,7 @@ const DeviceDetailPage: React.FC = () => {
   const deviceId = Number(id)
   const navigate = useNavigate()
   const { isAdmin } = useAuthStore()
+  const { addToast } = useUiStore()
   const [activeTab, setActiveTab] = useState<TabKey>('interfacce')
   const [selectedJob, setSelectedJob] = useState<ScanJob | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
@@ -65,6 +67,12 @@ const DeviceDetailPage: React.FC = () => {
     staleTime: 120_000,
     retry: false,
   })
+  const { data: checkmkInfo } = useQuery({
+    queryKey: ['checkmk', 'info'],
+    queryFn: checkmkApi.getInfo,
+    staleTime: 300_000,
+    retry: false,
+  })
   const linkMutation = useMutation({
     mutationFn: (hostName: string) => checkmkApi.linkDevice(deviceId, hostName),
     onSuccess: () => {
@@ -81,6 +89,23 @@ const DeviceDetailPage: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['checkmk', 'status'] })
     },
   })
+
+  // Auto-link: se il dispositivo ha un IP che corrisponde a un host CheckMK, collega automaticamente
+  useEffect(() => {
+    if (
+      !isAdmin() ||
+      !device?.primary_ip ||
+      device?.checkmk_host_name ||
+      !checkmkHosts?.length ||
+      !checkmkInfo?.enabled
+    ) return
+    const match = checkmkHosts.find(h => h.address === device.primary_ip)
+    if (!match) return
+    linkMutation.mutate(match.name, {
+      onSuccess: () => addToast(`Collegato automaticamente a CheckMK: ${match.name}`, 'success'),
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device?.id, device?.primary_ip, device?.checkmk_host_name, checkmkHosts, checkmkInfo?.enabled])
 
   const openEdit = () => {
     if (!device) return
@@ -258,15 +283,28 @@ const DeviceDetailPage: React.FC = () => {
       </div>
 
       {/* CheckMK Monitoring */}
-      {(checkmkStatus !== undefined || device.checkmk_host_name || isAdmin()) && checkmkHosts !== undefined && (
+      {(checkmkStatus !== undefined || device.checkmk_host_name || isAdmin()) && checkmkHosts !== undefined && (() => {
+        const graphUrl = device.checkmk_host_name && checkmkInfo?.url
+          ? `${checkmkInfo.url.replace(/\/$/, '')}/check_mk/view.py?view_name=service&host=${encodeURIComponent(device.checkmk_host_name)}&service=PING`
+          : null
+        const statusEntry = checkmkStatus?.[device.id]
+        return (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-200 bg-gray-50">
             <Link2 size={16} className="text-blue-500" />
             <span className="text-sm font-semibold text-gray-700">Monitoraggio CheckMK</span>
-            {device.checkmk_host_name && checkmkStatus && (() => {
-              const s = checkmkStatus[device.id]
-              return s ? <CheckMKBadge status={s.state_label as any} /> : null
-            })()}
+            {device.checkmk_host_name && statusEntry && (
+              graphUrl ? (
+                <a href={graphUrl} target="_blank" rel="noopener noreferrer"
+                   title="Apri grafici PING in CheckMK"
+                   className="inline-flex items-center gap-1 hover:opacity-75 transition-opacity">
+                  <CheckMKBadge status={statusEntry.state_label as any} />
+                  <ExternalLink size={11} className="text-gray-400" />
+                </a>
+              ) : (
+                <CheckMKBadge status={statusEntry.state_label as any} />
+              )
+            )}
           </div>
           <div className="p-4">
             {device.checkmk_host_name ? (
@@ -274,10 +312,21 @@ const DeviceDetailPage: React.FC = () => {
                 <div>
                   <p className="text-xs text-gray-500">Host collegato</p>
                   <p className="text-sm font-mono font-medium text-gray-800">{device.checkmk_host_name}</p>
-                  {checkmkStatus?.[device.id]?.address && (
-                    <p className="text-xs text-gray-400 font-mono">{checkmkStatus[device.id].address}</p>
+                  {statusEntry?.address && (
+                    <p className="text-xs text-gray-400 font-mono">{statusEntry.address}</p>
                   )}
                 </div>
+                {graphUrl && (
+                  <a
+                    href={graphUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50"
+                  >
+                    <ExternalLink size={13} />
+                    Grafici PING
+                  </a>
+                )}
                 {isAdmin() && (
                   <button
                     onClick={() => unlinkMutation.mutate()}
@@ -317,7 +366,8 @@ const DeviceDetailPage: React.FC = () => {
             )}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Tabs */}
       <div className="border-b border-gray-200 bg-white rounded-t-xl">
