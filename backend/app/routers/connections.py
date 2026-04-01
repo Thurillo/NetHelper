@@ -70,8 +70,13 @@ class ConnectionPath(BaseModel):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-_SWITCH_TYPES = {DeviceType.switch, DeviceType.router, DeviceType.access_point}
+# Types that act as Point C (uplink / aggregation device in the topology view).
+# Only pure switches: routers, APs and other end devices connect TO switches
+# and appear as Point A.
+_SWITCH_TYPES = {DeviceType.switch}
 _PP_TYPES = {DeviceType.patch_panel}
+# Alias kept for clarity in end-device checks
+_UPLINK_ONLY_TYPES = _SWITCH_TYPES
 
 
 async def _build_paths(db: AsyncSession) -> list[ConnectionPath]:
@@ -107,7 +112,8 @@ async def _build_paths(db: AsyncSession) -> list[ConnectionPath]:
 
     # Iterate cables where one side is on a switch/router (Point C)
     paths: list[ConnectionPath] = []
-    seen_cable_bc: set[int] = set()  # avoid duplicate paths from same switch-side cable
+    seen_cable_bc: set[int] = set()   # avoid duplicate paths from same switch-side cable
+    seen_cable_ab: set[int] = set()   # avoid reusing the same device-side cable for multiple switch ports
 
     for cable in all_cables:
         for sw_iface_id, other_iface_id in [
@@ -142,9 +148,11 @@ async def _build_paths(db: AsyncSession) -> list[ConnectionPath]:
                         continue  # skip the side facing the switch
                     ab_cables = iface_to_cable.get(pp_iface.id, [])
                     for ab_cable in ab_cables:
+                        if ab_cable.id in seen_cable_ab:
+                            continue  # already consumed by another switch-side cable
                         end_iface_id = other_end(ab_cable, pp_iface.id)
                         end_dev = get_device(end_iface_id)
-                        if end_dev and end_dev.device_type not in _SWITCH_TYPES and end_dev.device_type not in _PP_TYPES:
+                        if end_dev and end_dev.device_type not in _UPLINK_ONLY_TYPES and end_dev.device_type not in _PP_TYPES:
                             end_iface = ifaces.get(end_iface_id)
                             # Get cabinet name for PP
                             pp_cabinet = None
@@ -174,6 +182,7 @@ async def _build_paths(db: AsyncSession) -> list[ConnectionPath]:
                                 iface_c_name=sw_iface.name if sw_iface else None,
                                 cable_bc_id=cable_bc.id,
                             )
+                            seen_cable_ab.add(ab_cable.id)
                             paths.append(ab_path)
                             break
                     if ab_path:
@@ -193,7 +202,7 @@ async def _build_paths(db: AsyncSession) -> list[ConnectionPath]:
                         cable_bc_id=cable_bc.id,
                     ))
 
-            elif other_dev.device_type not in _SWITCH_TYPES:
+            elif other_dev.device_type not in _UPLINK_ONLY_TYPES and other_dev.device_type not in _PP_TYPES:
                 # Direct A→C cable: end-device ↔ switch
                 if cable.id in seen_cable_bc:
                     continue
