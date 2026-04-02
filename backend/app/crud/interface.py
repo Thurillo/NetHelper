@@ -11,7 +11,7 @@ from app.schemas.interface import InterfaceCreate, InterfaceUpdate
 class CRUDInterface(CRUDBase[Interface, InterfaceCreate, InterfaceUpdate]):
     async def get_by_device(self, db: AsyncSession, device_id: int) -> list[Interface]:
         result = await db.execute(
-            select(Interface).where(Interface.device_id == device_id)
+            select(Interface).where(Interface.device_id == device_id).order_by(Interface.id)
         )
         return list(result.scalars().all())
 

@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { X, Edit2, ExternalLink } from 'lucide-react'
-import type { RackDiagramDevice, NetworkInterface, PatchPortDetail } from '../../types'
+import type { RackDiagramDevice, DevicePortDetail, PatchPortDetail } from '../../types'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../common/Badge'
 import { devicesApi } from '../../api/devices'
 import { patchPanelsApi } from '../../api/patchPanels'
@@ -27,10 +27,10 @@ const RackDevicePanel: React.FC<RackDevicePanelProps> = ({ device, onClose, onEd
     staleTime: 30_000,
   })
 
-  // Fetch interfaces for switches
-  const { data: interfaces } = useQuery<NetworkInterface[]>({
-    queryKey: ['device-interfaces', device.id],
-    queryFn: () => devicesApi.getInterfaces(device.id),
+  // Fetch ports (with cable info) for switches
+  const { data: switchPorts } = useQuery<DevicePortDetail[]>({
+    queryKey: ['devices', device.id, 'ports'],
+    queryFn: () => devicesApi.getPorts(device.id),
     enabled: isSwitch,
     staleTime: 30_000,
   })
@@ -134,13 +134,13 @@ const RackDevicePanel: React.FC<RackDevicePanelProps> = ({ device, onClose, onEd
           </div>
         )}
 
-        {/* Switch interface list */}
-        {isSwitch && interfaces && interfaces.length > 0 && (
+        {/* Switch port list */}
+        {isSwitch && switchPorts && switchPorts.length > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-3">
               Porte switch
               <span className="ml-2 text-xs font-normal text-gray-500">
-  ({interfaces.length} porte)
+                ({switchPorts.filter(p => p.linked_interface).length} collegate / {switchPorts.length} totali)
               </span>
             </h4>
             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -150,16 +150,24 @@ const RackDevicePanel: React.FC<RackDevicePanelProps> = ({ device, onClose, onEd
                     <tr>
                       <th className="text-left px-3 py-2 text-gray-600 font-medium">Porta</th>
                       <th className="text-left px-3 py-2 text-gray-600 font-medium">Etichetta</th>
-                      <th className="text-left px-3 py-2 text-gray-600 font-medium">Stanza</th>
+                      <th className="text-left px-3 py-2 text-gray-600 font-medium">Connesso a</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {interfaces.map((iface) => (
-                        <tr key={iface.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-1.5 font-mono text-gray-800">{iface.name}</td>
-                          <td className="px-3 py-1.5 text-gray-600">{iface.label ?? '—'}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{iface.room_destination ?? '—'}</td>
-                        </tr>
+                    {switchPorts.map((p) => (
+                      <tr key={p.interface.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-1.5 font-mono text-gray-800">{p.interface.name}</td>
+                        <td className="px-3 py-1.5 text-gray-600">{p.interface.label ?? '—'}</td>
+                        <td className="px-3 py-1.5">
+                          {p.linked_interface
+                            ? <span className="text-green-700 font-medium flex items-center gap-1">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+                                {p.linked_interface.device_name} — {p.linked_interface.name}
+                              </span>
+                            : <span className="text-gray-300">—</span>
+                          }
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
