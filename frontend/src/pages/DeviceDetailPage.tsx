@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Edit2, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Link2, Link2Off, ExternalLink } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useDevice, useDeviceInterfaces, useDeviceIpAddresses, useDeviceMacEntries, useUpdateDevice, useDeleteDevice, useDeviceConnectionsPreview } from '../hooks/useDevices'
+import { useDevice, useDeviceInterfaces, useDevicePorts, useDeviceIpAddresses, useDeviceMacEntries, useUpdateDevice, useDeleteDevice, useDeviceConnectionsPreview } from '../hooks/useDevices'
 import { cabinetsApi } from '../api/cabinets'
 import { vendorsApi } from '../api/vendors'
 import { checkmkApi } from '../api/checkmk'
@@ -19,7 +19,7 @@ import ScanResultPanel from '../components/scan/ScanResultPanel'
 import Table, { Column } from '../components/common/Table'
 import { useAuthStore } from '../store/authStore'
 import { useUiStore } from '../store/uiStore'
-import type { NetworkInterface, IpAddress, MacEntry, ScanJob, DeviceStatus, DeviceType } from '../types'
+import type { NetworkInterface, IpAddress, MacEntry, ScanJob, DeviceStatus, DeviceType, DevicePortDetail } from '../types'
 
 type TabKey = 'interfacce' | 'ip' | 'mac' | 'scansioni'
 
@@ -46,6 +46,7 @@ const DeviceDetailPage: React.FC = () => {
 
   const { data: device, isLoading } = useDevice(deviceId)
   const { data: interfaces } = useDeviceInterfaces(deviceId, activeTab === 'interfacce')
+  const { data: ports } = useDevicePorts(deviceId, activeTab === 'interfacce')
   const { data: ipAddresses } = useDeviceIpAddresses(deviceId, activeTab === 'ip')
   const { data: macData } = useDeviceMacEntries(deviceId, activeTab === 'mac', undefined)
   const { data: cabinetsData } = useQuery({ queryKey: ['cabinets', 'all'], queryFn: () => cabinetsApi.list({ size: 100 }), staleTime: 60_000 })
@@ -161,6 +162,12 @@ const DeviceDetailPage: React.FC = () => {
     )
   }
 
+  const portsMap = React.useMemo(() => {
+    const m: Record<number, DevicePortDetail> = {}
+    ports?.forEach((p) => { m[p.interface.id] = p })
+    return m
+  }, [ports])
+
   if (isLoading) return <LoadingSpinner centered />
   if (!device) return <div className="text-center text-gray-500 py-12">Dispositivo non trovato</div>
 
@@ -178,6 +185,20 @@ const DeviceDetailPage: React.FC = () => {
     { key: 'mac_address', header: 'MAC', render: (i) => <span className="font-mono text-xs text-gray-600">{i.mac_address ?? '—'}</span> },
     { key: 'speed_mbps', header: 'Velocità', render: (i) => <span className="text-gray-500 text-xs">{i.speed_mbps ? `${i.speed_mbps} Mbps` : '—'}</span> },
     { key: 'room_destination', header: 'Stanza', render: (i) => <span className="text-gray-500 text-xs">{i.room_destination ?? '—'}</span> },
+    {
+      key: 'id' as any,
+      header: 'Connesso a',
+      render: (i) => {
+        const linked = portsMap[i.id]?.linked_interface
+        if (!linked) return <span className="text-gray-300 text-xs">—</span>
+        return (
+          <span className="text-xs text-green-700 font-medium flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+            {linked.device_name} — {linked.name}
+          </span>
+        )
+      },
+    },
     { key: 'is_enabled', header: 'Stato', render: (i) => <span className={`text-xs font-medium ${i.is_enabled ? 'text-green-600' : 'text-gray-400'}`}>{i.is_enabled ? 'Attiva' : 'Disattiva'}</span> },
   ]
 

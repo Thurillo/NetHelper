@@ -2,7 +2,7 @@ import apiClient from './client'
 import type {
   Device, DeviceCreate, DeviceFilters, NetworkInterface, IpAddress,
   MacEntry, ScanJob, PaginatedResponse, DeviceBulkCreateRequest, DeviceBulkCreateResponse,
-  DeviceConnectionsPreview
+  DeviceConnectionsPreview, DevicePortDetail
 } from '../types'
 
 export const devicesApi = {
@@ -32,6 +32,11 @@ export const devicesApi = {
 
   getInterfaces: async (deviceId: number): Promise<NetworkInterface[]> => {
     const response = await apiClient.get<NetworkInterface[]>(`/devices/${deviceId}/interfaces`)
+    return response.data
+  },
+
+  getPorts: async (deviceId: number): Promise<DevicePortDetail[]> => {
+    const response = await apiClient.get<DevicePortDetail[]>(`/devices/${deviceId}/ports`)
     return response.data
   },
 

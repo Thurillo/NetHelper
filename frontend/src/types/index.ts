@@ -722,6 +722,13 @@ export interface SwitchPortDetail {
   cable_id: number | null
 }
 
+// Corrisponde a DevicePortDetail del backend (routers/devices.py)
+export interface DevicePortDetail {
+  interface: NetworkInterface
+  linked_interface: InterfaceMinimal | null
+  cable_id: number | null
+}
+
 // ============================================================
 // SCHEDULED SCANS
 // ============================================================

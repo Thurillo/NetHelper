@@ -29,6 +29,15 @@ export const useDeviceInterfaces = (deviceId: number | undefined, tabActive = tr
   })
 }
 
+export const useDevicePorts = (deviceId: number | undefined, tabActive = true) => {
+  return useQuery({
+    queryKey: ['devices', deviceId, 'ports'],
+    queryFn: () => devicesApi.getPorts(deviceId!),
+    enabled: !!deviceId && tabActive,
+    staleTime: 30_000,
+  })
+}
+
 export const useDeviceIpAddresses = (deviceId: number | undefined, tabActive = true) => {
   return useQuery({
     queryKey: ['devices', deviceId, 'ip-addresses'],

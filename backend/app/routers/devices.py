@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.audit_log import log_action
+from app.crud.cable import crud_cable
 from app.crud.device import crud_device
 from app.crud.interface import crud_interface
 from app.crud.ip_address import crud_ip_address
@@ -13,13 +16,22 @@ from app.crud.mac_entry import crud_mac_entry
 from app.crud.scan_job import crud_scan_job
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
+from app.models.device import Device
+from app.models.interface import Interface
 from app.models.scan_job import ScanStatus
+from app.schemas.cable import InterfaceMinimal
 from app.schemas.device import DeviceBulkCreateRequest, DeviceBulkCreateResponse, DeviceConnectionsPreview, DeviceCreate, DeviceRead, DeviceScanRequest, DeviceUpdate
 from app.schemas.interface import InterfaceRead
 from app.schemas.ip_address import IpAddressRead
 from app.schemas.mac_entry import MacEntryRead
 from app.schemas.scan_job import ScanJobCreate, ScanJobRead
 from app.schemas.pagination import PaginatedResponse
+
+
+class DevicePortDetail(BaseModel):
+    interface: InterfaceRead
+    linked_interface: InterfaceMinimal | None = None
+    cable_id: int | None = None
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -239,12 +251,54 @@ async def get_device_interfaces(
     device_id: int,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[InterfaceRead]:
+) -> list[InterfaceRead]:
     device = await crud_device.get(db, device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found.")
     interfaces = await crud_interface.get_by_device(db, device_id)
     return [InterfaceRead.model_validate(i) for i in interfaces]
+
+
+@router.get("/{device_id}/ports", response_model=list[DevicePortDetail])
+async def get_device_ports(
+    device_id: int,
+    _: Annotated[object, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[DevicePortDetail]:
+    device = await crud_device.get(db, device_id)
+    if device is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found.")
+    interfaces = await crud_interface.get_by_device(db, device_id)
+    details = []
+    for iface in interfaces:
+        cable = await crud_cable.get_cable_for_interface(db, iface.id)
+        linked_iface_detail = None
+        cable_id = None
+        if cable:
+            cable_id = cable.id
+            other_iface_id = (
+                cable.interface_b_id if cable.interface_a_id == iface.id else cable.interface_a_id
+            )
+            other_result = await db.execute(
+                select(Interface, Device)
+                .join(Device, Interface.device_id == Device.id)
+                .where(Interface.id == other_iface_id)
+            )
+            other_row = other_result.first()
+            if other_row:
+                linked_iface_detail = InterfaceMinimal(
+                    id=other_row.Interface.id,
+                    name=other_row.Interface.name,
+                    label=other_row.Interface.label,
+                    device_id=other_row.Device.id,
+                    device_name=other_row.Device.name,
+                )
+        details.append(DevicePortDetail(
+            interface=InterfaceRead.model_validate(iface),
+            linked_interface=linked_iface_detail,
+            cable_id=cable_id,
+        ))
+    return details
 
 
 @router.get("/{device_id}/ip-addresses", response_model=list[IpAddressRead])
