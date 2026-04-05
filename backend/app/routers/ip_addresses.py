@@ -29,14 +29,27 @@ async def list_ip_addresses(
     page: int = 1,
     size: int = 100,
 ) -> PaginatedResponse[IpAddressRead]:
+    opts = [
+        selectinload(IpAddress.device).selectinload(Device.vendor),
+        selectinload(IpAddress.device).selectinload(Device.site),
+    ]
     if device_id is not None:
-        ips = await crud_ip_address.get_by_device(db, device_id)
+        result = await db.execute(
+            select(IpAddress).options(*opts).where(IpAddress.device_id == device_id)
+        )
+        ips = list(result.scalars().all())
     elif interface_id is not None:
-        ips = await crud_ip_address.get_by_interface(db, interface_id)
+        result = await db.execute(
+            select(IpAddress).options(*opts).where(IpAddress.interface_id == interface_id)
+        )
+        ips = list(result.scalars().all())
     elif prefix_id is not None:
         ips = await crud_ip_address.get_by_prefix(db, prefix_id, skip=(page - 1) * size, limit=size)
     else:
-        ips = await crud_ip_address.get_multi(db, skip=(page-1)*size, limit=size)
+        result = await db.execute(
+            select(IpAddress).options(*opts).offset((page - 1) * size).limit(size)
+        )
+        ips = list(result.scalars().all())
     _total = await crud_ip_address.count(db)
     return PaginatedResponse.build([IpAddressRead.model_validate(ip) for ip in ips], total=_total, page=page, size=size)
 
