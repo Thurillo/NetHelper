@@ -1,12 +1,15 @@
 import React, { useRef, useState } from 'react'
 import { AlertTriangle, Download, HardDrive, Trash2, Upload } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import { apiClient } from '../api/client'
 
 const BackupPage: React.FC = () => {
   const { isAdmin } = useAuthStore()
   if (!isAdmin()) return <Navigate to="/" replace />
+
+  const queryClient = useQueryClient()
 
   // ── Export state ──────────────────────────────────────────────────────────
   const [exportLoading, setExportLoading] = useState(false)
@@ -66,6 +69,7 @@ const BackupPage: React.FC = () => {
       setImportSuccess(`Ripristino completato. ${total} righe inserite in totale.`)
       setImportFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
+      queryClient.clear()  // svuota la cache React Query così le pagine ricaricano i dati freschi
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
@@ -97,6 +101,7 @@ const BackupPage: React.FC = () => {
       const res = await apiClient.delete(`/admin/backup/reset?scope=${resetScope}`)
       const cleared: string[] = res.data.tables_cleared
       setResetSuccess(`Reset completato. Tabelle svuotate: ${cleared.join(', ')}.`)
+      queryClient.clear()  // svuota la cache React Query così le pagine ricaricano i dati freschi
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
