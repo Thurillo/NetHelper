@@ -10,7 +10,6 @@ import { vendorsApi } from '../api/vendors'
 import { checkmkApi } from '../api/checkmk'
 import { cablesApi } from '../api/cables'
 import { devicesApi } from '../api/devices'
-import { interfacesApi } from '../api/interfaces'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../components/common/Badge'
 import CheckMKBadge from '../components/common/CheckMKBadge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
@@ -66,12 +65,15 @@ const DeviceDetailPage: React.FC = () => {
     enabled: !!linkingIface,
     staleTime: 30_000,
   })
-  const { data: targetIfaces } = useQuery({
-    queryKey: ['ifaces-for-link', linkTargetDeviceId],
-    queryFn: () => interfacesApi.list({ device_id: linkTargetDeviceId as number, size: 200 }),
+  // Usa getPorts (che include linked_interface) per mostrare stato occupata/libera
+  const { data: targetPorts } = useQuery({
+    queryKey: ['device-ports', linkTargetDeviceId],
+    queryFn: () => devicesApi.getPorts(linkTargetDeviceId as number),
     enabled: !!linkingIface && !!linkTargetDeviceId,
     staleTime: 10_000,
   })
+  const targetPortsFree     = (targetPorts ?? []).filter(p => !p.linked_interface)
+  const targetPortsOccupied = (targetPorts ?? []).filter(p => !!p.linked_interface)
 
   const createCable = useMutation({
     mutationFn: ({ a, b }: { a: number; b: number }) =>
@@ -591,9 +593,33 @@ const DeviceDetailPage: React.FC = () => {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
             >
               <option value="">— seleziona interfaccia —</option>
-              {(targetIfaces?.items ?? []).map(i => (
-                <option key={i.id} value={i.id}>{i.name}{i.label ? ` — ${i.label}` : ''}</option>
-              ))}
+              {targetPorts && (
+                <>
+                  {targetPortsFree.length > 0 && (
+                    <optgroup label="── Libere">
+                      {targetPortsFree.map(p => (
+                        <option key={p.interface.id} value={p.interface.id}>
+                          {p.interface.name}{p.interface.label ? ` — ${p.interface.label}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {targetPortsOccupied.length > 0 && (
+                    <optgroup label="── In uso">
+                      {targetPortsOccupied.map(p => {
+                        const dest = p.linked_interface
+                          ? `${p.linked_interface.device_name ?? '?'} / ${p.linked_interface.name}`
+                          : ''
+                        return (
+                          <option key={p.interface.id} value={p.interface.id}>
+                            {p.interface.name}{p.interface.label ? ` — ${p.interface.label}` : ''}  [→ {dest}]
+                          </option>
+                        )
+                      })}
+                    </optgroup>
+                  )}
+                </>
+              )}
             </select>
           </div>
         </div>
