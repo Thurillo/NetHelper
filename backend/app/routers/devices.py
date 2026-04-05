@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.audit_log import log_action
@@ -16,6 +16,7 @@ from app.crud.mac_entry import crud_mac_entry
 from app.crud.scan_job import crud_scan_job
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
+from app.models.cable import Cable
 from app.models.device import Device
 from app.models.interface import Interface
 from app.models.scan_job import ScanStatus
@@ -268,35 +269,62 @@ async def get_device_ports(
     device = await crud_device.get(db, device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found.")
+    # Query 1: all interfaces for device
     interfaces = await crud_interface.get_by_device(db, device_id)
+    if not interfaces:
+        return []
+
+    iface_ids = [i.id for i in interfaces]
+
+    # Query 2: all cables touching these interfaces (one IN query)
+    cables_res = await db.execute(
+        select(Cable).where(
+            or_(Cable.interface_a_id.in_(iface_ids), Cable.interface_b_id.in_(iface_ids))
+        )
+    )
+    cables = cables_res.scalars().all()
+
+    cable_by_iface: dict[int, Cable] = {}
+    for cable in cables:
+        if cable.interface_a_id in set(iface_ids):
+            cable_by_iface[cable.interface_a_id] = cable
+        if cable.interface_b_id in set(iface_ids):
+            cable_by_iface[cable.interface_b_id] = cable
+
+    # Query 3: all linked interfaces + their devices (one IN query)
+    iface_ids_set = set(iface_ids)
+    other_iface_ids = {
+        (cable.interface_b_id if cable.interface_a_id == iface_id else cable.interface_a_id)
+        for iface_id, cable in cable_by_iface.items()
+    }
+    linked_map: dict[int, InterfaceMinimal] = {}
+    if other_iface_ids:
+        linked_res = await db.execute(
+            select(Interface, Device)
+            .join(Device, Interface.device_id == Device.id)
+            .where(Interface.id.in_(other_iface_ids))
+        )
+        for row in linked_res:
+            linked_map[row.Interface.id] = InterfaceMinimal(
+                id=row.Interface.id,
+                name=row.Interface.name,
+                label=row.Interface.label,
+                device_id=row.Device.id,
+                device_name=row.Device.name,
+            )
+
+    # Assemble result
     details = []
     for iface in interfaces:
-        cable = await crud_cable.get_cable_for_interface(db, iface.id)
+        cable = cable_by_iface.get(iface.id)
         linked_iface_detail = None
-        cable_id = None
         if cable:
-            cable_id = cable.id
-            other_iface_id = (
-                cable.interface_b_id if cable.interface_a_id == iface.id else cable.interface_a_id
-            )
-            other_result = await db.execute(
-                select(Interface, Device)
-                .join(Device, Interface.device_id == Device.id)
-                .where(Interface.id == other_iface_id)
-            )
-            other_row = other_result.first()
-            if other_row:
-                linked_iface_detail = InterfaceMinimal(
-                    id=other_row.Interface.id,
-                    name=other_row.Interface.name,
-                    label=other_row.Interface.label,
-                    device_id=other_row.Device.id,
-                    device_name=other_row.Device.name,
-                )
+            other_id = cable.interface_b_id if cable.interface_a_id == iface.id else cable.interface_a_id
+            linked_iface_detail = linked_map.get(other_id)
         details.append(DevicePortDetail(
             interface=InterfaceRead.model_validate(iface),
             linked_interface=linked_iface_detail,
-            cable_id=cable_id,
+            cable_id=cable.id if cable else None,
         ))
     return details
 

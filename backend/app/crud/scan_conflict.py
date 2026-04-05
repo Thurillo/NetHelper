@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.base import CRUDBase
@@ -123,6 +123,53 @@ class CRUDScanConflict(CRUDBase[ScanConflict, ScanConflictRead, ScanConflictRead
         notes: Optional[str] = None,
     ) -> Optional[ScanConflict]:
         return await self._resolve(db, conflict_id, user_id, ConflictStatus.rejected, notes)
+
+    async def bulk_accept(
+        self,
+        db: AsyncSession,
+        conflict_ids: list[int],
+        user_id: int,
+        notes: Optional[str] = None,
+    ) -> list[ScanConflict]:
+        """Accept multiple conflicts: one query to load all, then per-entity value apply."""
+        res = await db.execute(select(ScanConflict).where(ScanConflict.id.in_(conflict_ids)))
+        conflicts = list(res.scalars().all())
+        now = datetime.now(timezone.utc)
+        for conflict in conflicts:
+            await self._apply_discovered_value(db, conflict)
+            conflict.status = ConflictStatus.accepted
+            conflict.resolved_by_user_id = user_id
+            conflict.resolved_at = now
+            if notes:
+                conflict.notes = notes
+            db.add(conflict)
+        await db.flush()
+        for conflict in conflicts:
+            await db.refresh(conflict)
+        return conflicts
+
+    async def bulk_reject(
+        self,
+        db: AsyncSession,
+        conflict_ids: list[int],
+        user_id: int,
+        notes: Optional[str] = None,
+    ) -> list[ScanConflict]:
+        """Reject multiple conflicts in a single UPDATE + SELECT."""
+        now = datetime.now(timezone.utc)
+        await db.execute(
+            update(ScanConflict)
+            .where(ScanConflict.id.in_(conflict_ids))
+            .values(
+                status=ConflictStatus.rejected,
+                resolved_by_user_id=user_id,
+                resolved_at=now,
+                notes=notes,
+            )
+        )
+        await db.flush()
+        res = await db.execute(select(ScanConflict).where(ScanConflict.id.in_(conflict_ids)))
+        return list(res.scalars().all())
 
     async def ignore_conflict(
         self,

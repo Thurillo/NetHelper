@@ -161,18 +161,14 @@ async def bulk_accept_conflicts(
     current_user: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[ScanConflictRead]:
-    results = []
-    for conflict_id in body.conflict_ids:
-        conflict = await crud_scan_conflict.accept_conflict(
-            db, conflict_id, current_user.id, body.notes
-        )
-        if conflict is not None:
-            results.append(ScanConflictRead.model_validate(conflict))
+    conflicts = await crud_scan_conflict.bulk_accept(
+        db, body.conflict_ids, current_user.id, body.notes
+    )
     client_ip = getattr(request.state, "client_ip", None)
     await log_action(db, user_id=current_user.id, action="bulk_accept_conflicts",
                      client_ip=client_ip,
-                     description=f"Bulk accepted {len(results)} conflicts.")
-    return results
+                     description=f"Bulk accepted {len(conflicts)} conflicts.")
+    return [ScanConflictRead.model_validate(c) for c in conflicts]
 
 
 @router.post("/bulk-reject", response_model=list[ScanConflictRead])
@@ -182,15 +178,11 @@ async def bulk_reject_conflicts(
     current_user: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[ScanConflictRead]:
-    results = []
-    for conflict_id in body.conflict_ids:
-        conflict = await crud_scan_conflict.reject_conflict(
-            db, conflict_id, current_user.id, body.notes
-        )
-        if conflict is not None:
-            results.append(ScanConflictRead.model_validate(conflict))
+    conflicts = await crud_scan_conflict.bulk_reject(
+        db, body.conflict_ids, current_user.id, body.notes
+    )
     client_ip = getattr(request.state, "client_ip", None)
     await log_action(db, user_id=current_user.id, action="bulk_reject_conflicts",
                      client_ip=client_ip,
-                     description=f"Bulk rejected {len(results)} conflicts.")
-    return results
+                     description=f"Bulk rejected {len(conflicts)} conflicts.")
+    return [ScanConflictRead.model_validate(c) for c in conflicts]
