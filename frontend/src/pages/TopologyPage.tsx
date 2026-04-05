@@ -103,7 +103,11 @@ function buildAdjacency(
 }
 
 /** Phase 2 — visibility-dependent: BFS through hidden nodes to find virtual edges.
- *  Receives the pre-built adjacency so it avoids re-iterating topology data. */
+ *  Receives the pre-built adjacency so it avoids re-iterating topology data.
+ *
+ *  Key behaviour: cabinet nodes are ALWAYS treated as BFS terminii. When a device
+ *  is hidden (e.g. a switch), devices connected to it "scale up" their connection
+ *  to the cabinet that contains the hidden switch. */
 function computeCollapsedEdges(
   adjacency: TopologyAdjacency,
   visibilityMap: Record<number, boolean>,
@@ -111,9 +115,18 @@ function computeCollapsedEdges(
 ): CollapsedEdge[] {
   const { adj, realPairKeys, allKeys, topoEdges } = adjacency
 
-  const isVisible = (key: string): boolean => {
+  // Actual visibility — used to decide BFS start nodes.
+  const isActuallyVisible = (key: string): boolean => {
     if (key.startsWith('device:')) return visibilityMap[parseInt(key.slice(7), 10)] ?? true
     if (key.startsWith('cabinet:')) return cabinetVisibilityMap[parseInt(key.slice(8), 10)] ?? true
+    return true
+  }
+
+  // BFS terminus check — cabinets are ALWAYS terminii so that devices connected to
+  // a hidden switch always stop at the cabinet node rather than traversing through.
+  const isBfsTerminus = (key: string): boolean => {
+    if (key.startsWith('device:')) return visibilityMap[parseInt(key.slice(7), 10)] ?? true
+    if (key.startsWith('cabinet:')) return true  // cabinets are always a stopping point
     return true
   }
 
@@ -122,22 +135,24 @@ function computeCollapsedEdges(
   // Real edges (both endpoints visible)
   for (const e of topoEdges) {
     const s = `device:${e.source_device_id}`, t = `device:${e.target_device_id}`
-    if (isVisible(s) && isVisible(t)) {
+    if (isActuallyVisible(s) && isActuallyVisible(t)) {
       result.push({ src: s, tgt: t, isVirtual: false, realEdgeId: e.id, label: `${e.source_interface} ↔ ${e.target_interface}` })
     }
   }
 
-  // Virtual edges: BFS from each visible node through hidden nodes
+  // Virtual edges: BFS from each visible node through hidden nodes.
+  // When the BFS reaches a cabinet node (always a terminus), a virtual dashed edge
+  // is created so the user sees "Device A → Cabinet of hidden switch".
   const seenVirtual = new Set<string>()
 
   for (const startKey of allKeys) {
-    if (!isVisible(startKey)) continue
+    if (!isActuallyVisible(startKey)) continue
 
     const visited = new Set<string>([startKey])
     const queue: string[] = []
 
     for (const nb of adj.get(startKey) ?? []) {
-      if (!visited.has(nb) && !isVisible(nb)) {
+      if (!visited.has(nb) && !isBfsTerminus(nb)) {
         visited.add(nb)
         queue.push(nb)
       }
@@ -149,7 +164,7 @@ function computeCollapsedEdges(
       for (const nb of adj.get(cur) ?? []) {
         if (visited.has(nb)) continue
         visited.add(nb)
-        if (isVisible(nb)) {
+        if (isBfsTerminus(nb)) {
           const pairKey = [startKey, nb].sort().join('|')
           if (!seenVirtual.has(pairKey) && !realPairKeys.has(pairKey)) {
             seenVirtual.add(pairKey)
@@ -418,10 +433,30 @@ const TopologyPage: React.FC = () => {
       const pos = effectiveLayout[key]
       const layoutEntry = activeMap?.layout?.[key]
       const visible = layoutEntry?.visible ?? (effectiveLayout[key]?.visible ?? true)
+
+      // Auto-position: place cabinet at the centroid of its devices (+ right offset)
+      // so virtual "scale-up" edges don't all converge at {0,0}.
+      let position: { x: number; y: number }
+      if (pos) {
+        position = { x: pos.x, y: pos.y }
+      } else {
+        const devPositions = topology!.nodes
+          .filter((n) => n.cabinet_id === cab.id)
+          .map((n) => effectiveLayout[String(n.id)])
+          .filter(Boolean)
+        if (devPositions.length > 0) {
+          const avgX = devPositions.reduce((s, p) => s + p.x, 0) / devPositions.length
+          const avgY = devPositions.reduce((s, p) => s + p.y, 0) / devPositions.length
+          position = { x: avgX + 240, y: avgY }
+        } else {
+          position = { x: 0, y: 0 }
+        }
+      }
+
       return {
         id: `cabinet:${cab.id}`,
         type: 'topologyCabinet',
-        position: pos ? { x: pos.x, y: pos.y } : { x: 0, y: 0 },
+        position,
         hidden: !visible,
         draggable: isAdmin && !!selectedMapId,
         data: {
