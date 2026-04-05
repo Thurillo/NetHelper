@@ -32,9 +32,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         for field, value in filters.items():
             if value is not None and hasattr(self.model, field):
                 stmt = stmt.where(getattr(self.model, field) == value)
-        if hasattr(self.model, "id"):
-            stmt = stmt.order_by(self.model.id)
-        stmt = stmt.offset(skip).limit(limit)
+        stmt = stmt.order_by(self.model.id).offset(skip).limit(limit)
         result = await db.execute(stmt)
         return list(result.scalars().all())
 

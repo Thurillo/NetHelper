@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Edit2, Link, Network, ArrowUpDown, Plus, Server } from 'lucide-react'
+import { ChevronDown, ChevronUp, Edit2, Link, Network, Plus, Server } from 'lucide-react'
 import { devicesApi } from '../api/devices'
 import { interfacesApi } from '../api/interfaces'
 import { switchesApi, type SwitchPortUpdateBody } from '../api/switches'
@@ -19,26 +19,20 @@ const SwitchPortDot: React.FC<{
   onClick: () => void
 }> = ({ port, selected, onClick }) => {
   const iface = port.interface
-  const isUplink = iface.is_uplink
   const isConnected = port.linked_interface !== null
   const isDisabled = iface.admin_up === false
 
   const bg = isDisabled
     ? 'bg-red-100 border-red-200 text-red-300'
-    : isUplink
-    ? 'bg-blue-500 border-blue-600 text-white'
     : isConnected
     ? 'bg-green-500 border-green-600 text-white'
     : 'bg-gray-100 border-gray-300 text-gray-400'
 
-  const label = iface.port_number != null
-    ? String(iface.port_number)
-    : iface.name.match(/(\d+)$/)?.[1] ?? iface.name.slice(0, 3)
+  const label = iface.name.match(/(\d+)$/)?.[1] ?? iface.name.slice(0, 3)
 
   const tooltip = [
     iface.name,
     iface.label,
-    isUplink ? 'Uplink' : null,
     isDisabled ? 'Disabilitata' : null,
     port.linked_interface ? `→ ${port.linked_interface.device_name} ${port.linked_interface.name}` : null,
   ].filter(Boolean).join(' | ')
@@ -68,8 +62,7 @@ const SwitchPortEditModal: React.FC<{
 }> = ({ isOpen, onClose, port, deviceId, onSaved }) => {
   const [label, setLabel] = useState('')
   const [description, setDescription] = useState('')
-  const [isUplink, setIsUplink] = useState(false)
-  const [isEnabled, setIsEnabled] = useState(true)
+  const [adminUp, setAdminUp] = useState(true)
   const [vlanId, setVlanId] = useState('')
   const [speedMbps, setSpeedMbps] = useState('')
   const [linkMode, setLinkMode] = useState<'keep' | 'unlink' | 'new'>('keep')
@@ -106,8 +99,7 @@ const SwitchPortEditModal: React.FC<{
     if (port && isOpen) {
       setLabel(port.interface.label ?? '')
       setDescription(port.interface.description ?? '')
-      setIsUplink(port.interface.is_uplink ?? false)
-      setIsEnabled(port.interface.admin_up !== false)
+      setAdminUp(port.interface.admin_up !== false)
       setVlanId(port.interface.vlan_id != null ? String(port.interface.vlan_id) : '')
       setSpeedMbps(port.interface.speed_mbps != null ? String(port.interface.speed_mbps) : '')
       setLinkMode('keep')
@@ -126,7 +118,7 @@ const SwitchPortEditModal: React.FC<{
       const updateBody: SwitchPortUpdateBody = {
         label: label.trim() || null,
         description: description.trim() || null,
-        admin_up: isEnabled,
+        admin_up: adminUp,
         vlan_id: vlanId ? parseInt(vlanId) : null,
         speed_mbps: speedMbps ? parseInt(speedMbps) : null,
       }
@@ -188,15 +180,10 @@ const SwitchPortEditModal: React.FC<{
             />
           </div>
 
-          {/* Toggles */}
+          {/* Toggle abilitazione porta */}
           <div className="flex gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={isUplink} onChange={e => setIsUplink(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-              <span className="text-sm text-gray-700">Uplink</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={isEnabled} onChange={e => setIsEnabled(e.target.checked)}
+              <input type="checkbox" checked={adminUp} onChange={e => setAdminUp(e.target.checked)}
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
               <span className="text-sm text-gray-700">Abilitata</span>
             </label>
@@ -355,21 +342,14 @@ const SwitchExpanded: React.FC<{
   if (isLoading) return <div className="py-6 flex justify-center"><LoadingSpinner /></div>
   if (!ports || ports.length === 0) return <p className="text-sm text-gray-400 py-4">Nessuna porta configurata.</p>
 
-  const uplinkCount = ports.filter(p => p.interface.is_uplink).length
-  const connectedCount = ports.filter(p => !p.interface.is_uplink && p.linked_interface !== null).length
+  const connectedCount = ports.filter(p => p.linked_interface !== null).length
   const disabledCount = ports.filter(p => p.interface.admin_up === false).length
-  const freeCount = ports.length - uplinkCount - connectedCount - disabledCount
+  const freeCount = ports.length - connectedCount - disabledCount
 
   return (
     <div className="border-t border-gray-100 pt-4 space-y-4">
       {/* Stats */}
       <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
-        {uplinkCount > 0 && (
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block" />
-            {uplinkCount} uplink
-          </span>
-        )}
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" />
           {connectedCount} connesse
@@ -407,7 +387,6 @@ const SwitchExpanded: React.FC<{
             <tr>
               <th className="text-left px-4 py-2.5 w-32">Porta</th>
               <th className="text-left px-4 py-2.5">Etichetta</th>
-              <th className="text-left px-4 py-2.5 w-16">Uplink</th>
               <th className="text-left px-4 py-2.5 w-16">VLAN</th>
               <th className="text-left px-4 py-2.5 w-24">Velocità</th>
               <th className="text-left px-4 py-2.5">Connessa a</th>
@@ -418,14 +397,11 @@ const SwitchExpanded: React.FC<{
             {ports.map(port => {
               const iface = port.interface
               const isSelected = selectedPortId === iface.id
-              const isUplink = iface.is_uplink
               const isConnected = port.linked_interface !== null
               const isDisabled = iface.admin_up === false
 
               const badgeBg = isDisabled
                 ? 'bg-red-100 border-red-200 text-red-400'
-                : isUplink
-                ? 'bg-blue-500 border-blue-600 text-white'
                 : isConnected
                 ? 'bg-green-500 border-green-600 text-white'
                 : 'bg-gray-100 border-gray-300 text-gray-500'
@@ -446,15 +422,6 @@ const SwitchExpanded: React.FC<{
                   {/* Etichetta */}
                   <td className="px-4 py-2.5 text-gray-700">
                     {iface.label ?? <span className="text-gray-300">—</span>}
-                  </td>
-
-                  {/* Uplink */}
-                  <td className="px-4 py-2.5 text-center">
-                    {isUplink ? (
-                      <ArrowUpDown size={14} className="text-blue-500 mx-auto" />
-                    ) : (
-                      <span className="text-gray-200">—</span>
-                    )}
                   </td>
 
                   {/* VLAN */}

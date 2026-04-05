@@ -283,12 +283,10 @@ export interface NetworkInterface {
   mac_address: string | null
   speed_mbps: number | null
   admin_up: boolean | null
-  is_uplink: boolean   // frontend-only, not persisted by backend
   vlan_id: number | null
   vlan?: Vlan
   description: string | null
   room_destination: string | null
-  port_number: number | null  // frontend-only, not persisted by backend
   created_at: string
 }
 
@@ -300,11 +298,9 @@ export interface InterfaceCreate {
   mac_address?: string | null
   speed_mbps?: number | null
   admin_up?: boolean
-  is_uplink?: boolean
   vlan_id?: number | null
   description?: string | null
   room_destination?: string | null
-  port_number?: number | null
 }
 
 // ============================================================
