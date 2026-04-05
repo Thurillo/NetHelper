@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy.orm import selectinload
+
 from app.crud.audit_log import log_action
 from app.crud.cabinet import crud_cabinet
 from app.crud.cable import crud_cable
@@ -36,6 +38,21 @@ class DevicePortDetail(BaseModel):
     cable_id: int | None = None
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+
+
+async def _reload_device(db: AsyncSession, device_id: int) -> Device:
+    """Reload a Device with all relationships needed for DeviceRead serialization."""
+    from app.models.vendor import Vendor
+    from app.models.cabinet import Cabinet as CabinetModel
+    result = await db.execute(
+        select(Device)
+        .options(
+            selectinload(Device.vendor),
+            selectinload(Device.cabinet),
+        )
+        .where(Device.id == device_id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/", response_model=PaginatedResponse[DeviceRead])
@@ -134,7 +151,7 @@ async def create_device(
     await log_action(db, user_id=current_user.id, action="create", entity_table="device",
                      entity_id=device.id, client_ip=client_ip,
                      description=f"Created device '{device.name}'" + (f" con {body.port_count} porte." if body.port_count else "."))
-    return DeviceRead.model_validate(device)
+    return DeviceRead.model_validate(await _reload_device(db, device.id))
 
 
 @router.get("/{device_id}", response_model=DeviceRead)
@@ -146,7 +163,7 @@ async def get_device(
     device = await crud_device.get(db, device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found.")
-    return DeviceRead.model_validate(device)
+    return DeviceRead.model_validate(await _reload_device(db, device_id))
 
 
 @router.get("/{device_id}/connections-preview", response_model=DeviceConnectionsPreview)
@@ -239,7 +256,7 @@ async def update_device(
     await log_action(db, user_id=current_user.id, action="update", entity_table="device",
                      entity_id=updated.id, client_ip=client_ip,
                      description=f"Updated device '{updated.name}'.")
-    return DeviceRead.model_validate(updated)
+    return DeviceRead.model_validate(await _reload_device(db, updated.id))
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)

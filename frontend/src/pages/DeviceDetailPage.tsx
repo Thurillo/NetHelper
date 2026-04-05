@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Edit2, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Link2, Link2Off, ExternalLink } from 'lucide-react'
+import { Edit2, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Link2, Link2Off, ExternalLink, Unlink } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useDevice, useDeviceInterfaces, useDevicePorts, useDeviceIpAddresses, useDeviceMacEntries, useUpdateDevice, useDeleteDevice, useDeviceConnectionsPreview } from '../hooks/useDevices'
+import { useDevice, useDeviceInterfaces, useDevicePorts, useDeviceIpAddresses, useUpdateDevice, useDeleteDevice, useDeviceConnectionsPreview } from '../hooks/useDevices'
 import { cabinetsApi } from '../api/cabinets'
 import { vendorsApi } from '../api/vendors'
 import { checkmkApi } from '../api/checkmk'
+import { cablesApi } from '../api/cables'
+import { devicesApi } from '../api/devices'
+import { interfacesApi } from '../api/interfaces'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../components/common/Badge'
 import CheckMKBadge from '../components/common/CheckMKBadge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
@@ -19,9 +22,9 @@ import ScanResultPanel from '../components/scan/ScanResultPanel'
 import Table, { Column } from '../components/common/Table'
 import { useAuthStore } from '../store/authStore'
 import { useUiStore } from '../store/uiStore'
-import type { NetworkInterface, IpAddress, MacEntry, ScanJob, DeviceStatus, DeviceType, DevicePortDetail } from '../types'
+import type { NetworkInterface, IpAddress, ScanJob, DeviceStatus, DeviceType, DevicePortDetail } from '../types'
 
-type TabKey = 'interfacce' | 'ip' | 'mac' | 'scansioni'
+type TabKey = 'interfacce' | 'ip' | 'scansioni'
 
 const DEVICE_TYPES: DeviceType[] = ['switch', 'router', 'access_point', 'server', 'patch_panel', 'pdu', 'firewall', 'ups', 'unmanaged_switch', 'workstation', 'printer', 'camera', 'phone', 'other']
 const DEVICE_STATUSES: DeviceStatus[] = ['active', 'inactive', 'planned', 'decommissioned']
@@ -48,9 +51,49 @@ const DeviceDetailPage: React.FC = () => {
   const { data: interfaces } = useDeviceInterfaces(deviceId, activeTab === 'interfacce')
   const { data: ports } = useDevicePorts(deviceId, activeTab === 'interfacce')
   const { data: ipAddresses } = useDeviceIpAddresses(deviceId, activeTab === 'ip')
-  const { data: macData } = useDeviceMacEntries(deviceId, activeTab === 'mac', undefined)
+
+  // State per modal di collegamento interfaccia
+  const [linkingIface, setLinkingIface] = useState<NetworkInterface | null>(null)
+  const [linkTargetDeviceId, setLinkTargetDeviceId] = useState<number | ''>('')
+  const [linkTargetIfaceId, setLinkTargetIfaceId] = useState<number | ''>('')
   const { data: cabinetsData } = useQuery({ queryKey: ['cabinets', 'all'], queryFn: () => cabinetsApi.list({ size: 100 }), staleTime: 60_000 })
   const { data: vendorsData } = useQuery({ queryKey: ['vendors', 'all'], queryFn: () => vendorsApi.list({ size: 100 }), staleTime: 60_000 })
+
+  // Dati per modal collegamento interfaccia
+  const { data: allDevices } = useQuery({
+    queryKey: ['devices-all-for-link'],
+    queryFn: () => devicesApi.list({ size: 500 }),
+    enabled: !!linkingIface,
+    staleTime: 30_000,
+  })
+  const { data: targetIfaces } = useQuery({
+    queryKey: ['ifaces-for-link', linkTargetDeviceId],
+    queryFn: () => interfacesApi.list({ device_id: linkTargetDeviceId as number, size: 200 }),
+    enabled: !!linkingIface && !!linkTargetDeviceId,
+    staleTime: 10_000,
+  })
+
+  const createCable = useMutation({
+    mutationFn: ({ a, b }: { a: number; b: number }) =>
+      cablesApi.create({ interface_a_id: a, interface_b_id: b }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device-ports', deviceId] })
+      qc.invalidateQueries({ queryKey: ['device-ports'] })
+      qc.invalidateQueries({ queryKey: ['connections'] })
+      setLinkingIface(null); setLinkTargetDeviceId(''); setLinkTargetIfaceId('')
+    },
+    onError: () => addToast('Errore durante il collegamento', 'error'),
+  })
+
+  const deleteCable = useMutation({
+    mutationFn: (cableId: number) => cablesApi.delete(cableId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device-ports', deviceId] })
+      qc.invalidateQueries({ queryKey: ['device-ports'] })
+      qc.invalidateQueries({ queryKey: ['connections'] })
+    },
+    onError: () => addToast('Errore durante la disconnessione', 'error'),
+  })
   const updateDevice = useUpdateDevice()
   const deleteDevice = useDeleteDevice()
   const { data: connectionsPreview, isLoading: previewLoading } = useDeviceConnectionsPreview(deviceId, showDeleteConfirm)
@@ -174,7 +217,6 @@ const DeviceDetailPage: React.FC = () => {
   const tabs: { key: TabKey; label: string; count?: number }[] = [
     { key: 'interfacce', label: 'Interfacce', count: interfaces?.length },
     { key: 'ip', label: 'Indirizzi IP', count: ipAddresses?.length },
-    { key: 'mac', label: 'Tabella MAC', count: macData?.total },
     { key: 'scansioni', label: 'Scansioni' },
   ]
 
@@ -189,7 +231,8 @@ const DeviceDetailPage: React.FC = () => {
       key: 'id' as any,
       header: 'Connesso a',
       render: (i) => {
-        const linked = portsMap[i.id]?.linked_interface
+        const port = portsMap[i.id]
+        const linked = port?.linked_interface
         if (!linked) return <span className="text-gray-300 text-xs">—</span>
         return (
           <span className="text-xs text-green-700 font-medium flex items-center gap-1">
@@ -200,6 +243,36 @@ const DeviceDetailPage: React.FC = () => {
       },
     },
     { key: 'admin_up', header: 'Stato', render: (i) => <span className={`text-xs font-medium ${i.admin_up ? 'text-green-600' : 'text-gray-400'}`}>{i.admin_up ? 'Attiva' : 'Disattiva'}</span> },
+    ...(isAdmin() ? [{
+      key: '_link_action' as any,
+      header: '',
+      render: (i: NetworkInterface) => {
+        const port = portsMap[i.id]
+        const cableId = port?.cable_id
+        const linked = port?.linked_interface
+        if (linked && cableId) {
+          return (
+            <button
+              onClick={(e) => { e.stopPropagation(); deleteCable.mutate(cableId) }}
+              disabled={deleteCable.isPending}
+              title="Rimuovi collegamento"
+              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            >
+              <Unlink size={13} />
+            </button>
+          )
+        }
+        return (
+          <button
+            onClick={(e) => { e.stopPropagation(); setLinkingIface(i); setLinkTargetDeviceId(''); setLinkTargetIfaceId('') }}
+            title="Collega a un'altra interfaccia"
+            className="p-1 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+          >
+            <Link2 size={13} />
+          </button>
+        )
+      }
+    }] : []),
   ]
 
   const ipColumns: Column<IpAddress>[] = [
@@ -210,13 +283,6 @@ const DeviceDetailPage: React.FC = () => {
     { key: 'last_seen', header: 'Ultimo visto', render: (ip) => <span className="text-gray-400 text-xs">{ip.last_seen ? format(new Date(ip.last_seen), 'dd/MM HH:mm', { locale: it }) : '—'}</span> },
   ]
 
-  const macColumns: Column<MacEntry>[] = [
-    { key: 'mac_address', header: 'MAC', render: (m) => <span className="font-mono text-sm">{m.mac_address}</span> },
-    { key: 'ip_address', header: 'IP', render: (m) => <span className="text-gray-600 font-mono text-xs">{m.ip_address ?? '—'}</span> },
-    { key: 'interface', header: 'Interfaccia', render: (m) => <span className="text-gray-500 text-xs">{m.interface?.name ?? '—'}</span> },
-    { key: 'vlan', header: 'VLAN', render: (m) => <span className="text-gray-500 text-xs">{m.vlan ? `${m.vlan.vid} — ${m.vlan.name}` : '—'}</span> },
-    { key: 'last_seen', header: 'Ultimo visto', render: (m) => <span className="text-gray-400 text-xs">{format(new Date(m.last_seen), 'dd/MM HH:mm', { locale: it })}</span> },
-  ]
 
   return (
     <div className="space-y-6">
@@ -432,16 +498,6 @@ const DeviceDetailPage: React.FC = () => {
             emptyTitle="Nessun indirizzo IP"
           />
         )}
-        {activeTab === 'mac' && (
-          <Table
-            columns={macColumns}
-            data={macData?.items ?? []}
-            keyExtractor={(m) => m.id}
-            isLoading={!macData}
-            emptyTitle="Nessun MAC"
-            emptyDescription="Non sono state trovate voci MAC per questo dispositivo."
-          />
-        )}
         {activeTab === 'scansioni' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
@@ -492,6 +548,56 @@ const DeviceDetailPage: React.FC = () => {
         isLoading={deleteDevice.isPending || previewLoading}
         variant={connectionsPreview && connectionsPreview.pp_connections.length > 0 ? 'warning' : 'danger'}
       />
+
+      {/* Modal collegamento interfaccia */}
+      <Modal
+        isOpen={!!linkingIface}
+        onClose={() => { setLinkingIface(null); setLinkTargetDeviceId(''); setLinkTargetIfaceId('') }}
+        title={`Collega interfaccia: ${linkingIface?.name}`}
+        size="md"
+        footer={
+          <>
+            <button onClick={() => { setLinkingIface(null); setLinkTargetDeviceId(''); setLinkTargetIfaceId('') }} className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Annulla</button>
+            <button
+              onClick={() => { if (linkingIface && linkTargetIfaceId) createCable.mutate({ a: linkingIface.id, b: linkTargetIfaceId as number }) }}
+              disabled={!linkTargetIfaceId || createCable.isPending}
+              className="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              {createCable.isPending ? 'Collegamento...' : 'Collega'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Dispositivo</label>
+            <select
+              value={linkTargetDeviceId}
+              onChange={e => { setLinkTargetDeviceId(e.target.value ? Number(e.target.value) : ''); setLinkTargetIfaceId('') }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+            >
+              <option value="">— seleziona dispositivo —</option>
+              {(allDevices?.items ?? []).filter(d => d.id !== deviceId).map(d => (
+                <option key={d.id} value={d.id}>{d.name}{d.primary_ip ? ` (${d.primary_ip})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Interfaccia</label>
+            <select
+              value={linkTargetIfaceId}
+              onChange={e => setLinkTargetIfaceId(e.target.value ? Number(e.target.value) : '')}
+              disabled={!linkTargetDeviceId}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              <option value="">— seleziona interfaccia —</option>
+              {(targetIfaces?.items ?? []).map(i => (
+                <option key={i.id} value={i.id}>{i.name}{i.label ? ` — ${i.label}` : ''}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Modal>
 
       {/* Edit modal */}
       <Modal
