@@ -35,11 +35,11 @@ const DeviceDetailModal: React.FC<Props> = ({ deviceId, onClose }) => {
 
   const interfaceColumns: Column<NetworkInterface>[] = [
     { key: 'name', header: 'Nome', render: (i) => <span className="font-mono text-sm font-medium">{i.name}</span> },
-    { key: 'interface_type', header: 'Tipo', render: (i) => <span className="text-xs text-gray-600">{i.interface_type}</span> },
+    { key: 'if_type', header: 'Tipo', render: (i) => <span className="text-xs text-gray-600">{i.if_type}</span> },
     { key: 'mac_address', header: 'MAC', render: (i) => <span className="font-mono text-xs text-gray-600">{i.mac_address ?? '—'}</span> },
     {
-      key: 'is_enabled', header: 'Stato',
-      render: (i) => <span className={`text-xs font-medium ${i.is_enabled ? 'text-green-600' : 'text-gray-400'}`}>{i.is_enabled ? 'Attiva' : 'Disattiva'}</span>,
+      key: 'admin_up', header: 'Stato',
+      render: (i) => <span className={`text-xs font-medium ${i.admin_up ? 'text-green-600' : 'text-gray-400'}`}>{i.admin_up ? 'Attiva' : 'Disattiva'}</span>,
     },
   ]
 

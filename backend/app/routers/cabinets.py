@@ -128,7 +128,7 @@ async def get_cabinet_devices(
     cabinet_id: int,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[DeviceRead]:
+) -> list[DeviceRead]:
     cabinet = await crud_cabinet.get(db, cabinet_id)
     if cabinet is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cabinet not found.")

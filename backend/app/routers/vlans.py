@@ -108,7 +108,7 @@ async def get_vlan_interfaces(
     vlan_id: int,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[InterfaceRead]:
+) -> list[InterfaceRead]:
     from app.crud.interface import crud_interface
     from sqlalchemy import select
     from app.models.interface import Interface
@@ -128,7 +128,7 @@ async def get_vlan_prefixes(
     vlan_id: int,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[IpPrefixRead]:
+) -> list[IpPrefixRead]:
     from sqlalchemy import select
     from app.models.ip_prefix import IpPrefix
 

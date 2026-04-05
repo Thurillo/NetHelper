@@ -46,7 +46,7 @@ class CRUDIpPrefix(CRUDBase[IpPrefix, IpPrefixCreate, IpPrefixUpdate]):
         for field, value in filters.items():
             if value is not None and hasattr(IpPrefix, field):
                 stmt = stmt.where(getattr(IpPrefix, field) == value)
-        stmt = stmt.offset(skip).limit(limit)
+        stmt = stmt.order_by(IpPrefix.id).offset(skip).limit(limit)
         result = await db.execute(stmt)
         return list(result.scalars().all())
 

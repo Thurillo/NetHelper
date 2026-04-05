@@ -11,7 +11,7 @@ class CabinetCreate(BaseModel):
     u_count: int = 42
     description: Optional[str] = None
     row_label: Optional[str] = None
-    position: Optional[str] = None
+    position: Optional[int] = None
 
 
 class CabinetUpdate(BaseModel):
@@ -20,7 +20,7 @@ class CabinetUpdate(BaseModel):
     u_count: Optional[int] = None
     description: Optional[str] = None
     row_label: Optional[str] = None
-    position: Optional[str] = None
+    position: Optional[int] = None
     map_x: Optional[float] = None
     map_y: Optional[float] = None
 
@@ -38,7 +38,7 @@ class CabinetRead(BaseModel):
     u_count: int
     description: Optional[str] = None
     row_label: Optional[str] = None
-    position: Optional[str] = None
+    position: Optional[int] = None
     map_x: Optional[float] = None
     map_y: Optional[float] = None
     site: Optional[_SiteMinimal] = None

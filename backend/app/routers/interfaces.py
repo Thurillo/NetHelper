@@ -119,7 +119,7 @@ async def get_interface_mac_entries(
     interface_id: int,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[MacEntryRead]:
+) -> list[MacEntryRead]:
     iface = await crud_interface.get(db, interface_id)
     if iface is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interface not found.")

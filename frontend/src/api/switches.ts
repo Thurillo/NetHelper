@@ -4,8 +4,7 @@ import type { SwitchPortDetail } from '../types'
 export interface SwitchPortUpdateBody {
   label?: string | null
   description?: string | null
-  is_uplink?: boolean
-  is_enabled?: boolean
+  admin_up?: boolean
   vlan_id?: number | null
   speed_mbps?: number | null
 }

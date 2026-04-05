@@ -187,7 +187,7 @@ const AddDeviceModal: React.FC<AddDeviceModalProps> = ({ host, vendors, allDevic
           const iface = await interfacesApi.create({
             device_id: device.id,
             name: `Port ${i}`,
-            interface_type: 'ethernet',
+            if_type: 'ethernet',
             mac_address: i === 1 ? (host.mac || null) : null,
           })
           if (i === 1) firstIfaceId = iface.id
@@ -197,14 +197,14 @@ const AddDeviceModal: React.FC<AddDeviceModalProps> = ({ host, vendors, allDevic
         const iface = await interfacesApi.create({
           device_id: device.id,
           name: 'eth0',
-          interface_type: 'ethernet',
+          if_type: 'ethernet',
           mac_address: host.mac || null,
         })
         firstIfaceId = iface.id
         await interfacesApi.create({
           device_id: device.id,
           name: 'eth1-passthrough',
-          interface_type: 'ethernet',
+          if_type: 'ethernet',
         })
       }
 
@@ -214,7 +214,7 @@ const AddDeviceModal: React.FC<AddDeviceModalProps> = ({ host, vendors, allDevic
           const iface = await interfacesApi.create({
             device_id: device.id,
             name: 'eth0',
-            interface_type: 'ethernet',
+            if_type: 'ethernet',
             mac_address: host.mac || null,
           })
           firstIfaceId = iface.id
@@ -234,7 +234,7 @@ const AddDeviceModal: React.FC<AddDeviceModalProps> = ({ host, vendors, allDevic
         await interfacesApi.create({
           device_id: device.id,
           name: 'eth0',
-          interface_type: 'ethernet',
+          if_type: 'ethernet',
           mac_address: host.mac || null,
         })
       }

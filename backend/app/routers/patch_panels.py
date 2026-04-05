@@ -59,7 +59,7 @@ async def get_patch_panel_ports(
     panel_id: int,
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[PatchPortDetail]:
+) -> list[PatchPortDetail]:
     device = await crud_device.get(db, panel_id)
     if device is None or device.device_type != DeviceType.patch_panel:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patch panel not found.")

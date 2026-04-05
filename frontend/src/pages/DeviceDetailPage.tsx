@@ -181,7 +181,7 @@ const DeviceDetailPage: React.FC = () => {
   const interfaceColumns: Column<NetworkInterface>[] = [
     { key: 'name', header: 'Nome', render: (i) => <span className="font-mono text-sm font-medium">{i.name}</span> },
     { key: 'label', header: 'Etichetta', render: (i) => <span className="text-gray-500">{i.label ?? '—'}</span> },
-    { key: 'interface_type', header: 'Tipo', render: (i) => <span className="text-xs text-gray-600">{i.interface_type}</span> },
+    { key: 'if_type', header: 'Tipo', render: (i) => <span className="text-xs text-gray-600">{i.if_type}</span> },
     { key: 'mac_address', header: 'MAC', render: (i) => <span className="font-mono text-xs text-gray-600">{i.mac_address ?? '—'}</span> },
     { key: 'speed_mbps', header: 'Velocità', render: (i) => <span className="text-gray-500 text-xs">{i.speed_mbps ? `${i.speed_mbps} Mbps` : '—'}</span> },
     { key: 'room_destination', header: 'Stanza', render: (i) => <span className="text-gray-500 text-xs">{i.room_destination ?? '—'}</span> },
@@ -199,7 +199,7 @@ const DeviceDetailPage: React.FC = () => {
         )
       },
     },
-    { key: 'is_enabled', header: 'Stato', render: (i) => <span className={`text-xs font-medium ${i.is_enabled ? 'text-green-600' : 'text-gray-400'}`}>{i.is_enabled ? 'Attiva' : 'Disattiva'}</span> },
+    { key: 'admin_up', header: 'Stato', render: (i) => <span className={`text-xs font-medium ${i.admin_up ? 'text-green-600' : 'text-gray-400'}`}>{i.admin_up ? 'Attiva' : 'Disattiva'}</span> },
   ]
 
   const ipColumns: Column<IpAddress>[] = [

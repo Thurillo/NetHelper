@@ -160,7 +160,7 @@ async def bulk_accept_conflicts(
     request: Request,
     current_user: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[ScanConflictRead]:
+) -> list[ScanConflictRead]:
     results = []
     for conflict_id in body.conflict_ids:
         conflict = await crud_scan_conflict.accept_conflict(
@@ -181,7 +181,7 @@ async def bulk_reject_conflicts(
     request: Request,
     current_user: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> PaginatedResponse[ScanConflictRead]:
+) -> list[ScanConflictRead]:
     results = []
     for conflict_id in body.conflict_ids:
         conflict = await crud_scan_conflict.reject_conflict(

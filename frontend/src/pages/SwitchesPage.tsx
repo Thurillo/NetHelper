@@ -21,7 +21,7 @@ const SwitchPortDot: React.FC<{
   const iface = port.interface
   const isUplink = iface.is_uplink
   const isConnected = port.linked_interface !== null
-  const isDisabled = iface.is_enabled === false
+  const isDisabled = iface.admin_up === false
 
   const bg = isDisabled
     ? 'bg-red-100 border-red-200 text-red-300'
@@ -107,7 +107,7 @@ const SwitchPortEditModal: React.FC<{
       setLabel(port.interface.label ?? '')
       setDescription(port.interface.description ?? '')
       setIsUplink(port.interface.is_uplink ?? false)
-      setIsEnabled(port.interface.is_enabled !== false)
+      setIsEnabled(port.interface.admin_up !== false)
       setVlanId(port.interface.vlan_id != null ? String(port.interface.vlan_id) : '')
       setSpeedMbps(port.interface.speed_mbps != null ? String(port.interface.speed_mbps) : '')
       setLinkMode('keep')
@@ -126,8 +126,7 @@ const SwitchPortEditModal: React.FC<{
       const updateBody: SwitchPortUpdateBody = {
         label: label.trim() || null,
         description: description.trim() || null,
-        is_uplink: isUplink,
-        is_enabled: isEnabled,
+        admin_up: isEnabled,
         vlan_id: vlanId ? parseInt(vlanId) : null,
         speed_mbps: speedMbps ? parseInt(speedMbps) : null,
       }
@@ -358,7 +357,7 @@ const SwitchExpanded: React.FC<{
 
   const uplinkCount = ports.filter(p => p.interface.is_uplink).length
   const connectedCount = ports.filter(p => !p.interface.is_uplink && p.linked_interface !== null).length
-  const disabledCount = ports.filter(p => p.interface.is_enabled === false).length
+  const disabledCount = ports.filter(p => p.interface.admin_up === false).length
   const freeCount = ports.length - uplinkCount - connectedCount - disabledCount
 
   return (
@@ -421,7 +420,7 @@ const SwitchExpanded: React.FC<{
               const isSelected = selectedPortId === iface.id
               const isUplink = iface.is_uplink
               const isConnected = port.linked_interface !== null
-              const isDisabled = iface.is_enabled === false
+              const isDisabled = iface.admin_up === false
 
               const badgeBg = isDisabled
                 ? 'bg-red-100 border-red-200 text-red-400'
