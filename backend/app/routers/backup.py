@@ -28,7 +28,7 @@ EXPORT_TABLES = [
     "vlan",
     "device",
     "interface",
-    "interface_vlan",   # junction: interface ↔ vlan
+    "interface_vlan",   # junction: interface ↔ vlan  (composite PK, no id/seq)
     "cable",
     "ip_prefix",
     "ip_address",
@@ -40,6 +40,9 @@ EXPORT_TABLES = [
     "app_setting",
     "topology_map",
 ]
+
+# Tables that have no single 'id' column and no {table}_id_seq sequence.
+TABLES_NO_ID = frozenset({"interface_vlan"})
 
 NETWORK_RESET_TABLES = [
     "scan_conflict",
@@ -98,12 +101,15 @@ async def export_backup(
     tables_data: dict[str, list] = {}
 
     for table in EXPORT_TABLES:
+        # Use savepoint so a failure on one table doesn't abort the whole transaction
         try:
-            result = await db.execute(text(f'SELECT * FROM "{table}" ORDER BY id'))
-            rows = result.mappings().all()
-            tables_data[table] = [
-                {k: _serialize_value(v) for k, v in row.items()} for row in rows
-            ]
+            async with db.begin_nested():
+                order = "ORDER BY 1" if table in TABLES_NO_ID else "ORDER BY id"
+                result = await db.execute(text(f'SELECT * FROM "{table}" {order}'))
+                rows = result.mappings().all()
+                tables_data[table] = [
+                    {k: _serialize_value(v) for k, v in row.items()} for row in rows
+                ]
         except Exception as exc:
             logger.warning("Skipping table '%s' during export: %s", table, exc)
             tables_data[table] = []
@@ -151,18 +157,19 @@ async def import_backup(
     tables: dict[str, list] = payload["tables"]
     restored: dict[str, int] = {}
 
-    # Truncate in REVERSE export order
+    # Truncate in REVERSE export order (each in its own savepoint)
     for table in reversed(EXPORT_TABLES):
         if table not in tables:
             continue
         try:
-            await db.execute(
-                text(f'TRUNCATE "{table}" RESTART IDENTITY CASCADE')
-            )
+            async with db.begin_nested():
+                await db.execute(
+                    text(f'TRUNCATE "{table}" RESTART IDENTITY CASCADE')
+                )
         except Exception as exc:
             logger.warning("Skipping TRUNCATE for table '%s': %s", table, exc)
 
-    # Insert in FORWARD order
+    # Insert in FORWARD order (each table's rows in its own savepoint)
     for table in EXPORT_TABLES:
         rows = tables.get(table)
         if not rows:
@@ -176,28 +183,31 @@ async def import_backup(
             insert_sql = text(
                 f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders})'
             )
-            for row in rows:
-                await db.execute(insert_sql, {k: _deserialize_value(v) for k, v in row.items()})
+            async with db.begin_nested():
+                for row in rows:
+                    await db.execute(
+                        insert_sql,
+                        {k: _deserialize_value(v) for k, v in row.items()},
+                    )
             restored[table] = len(rows)
         except Exception as exc:
-            logger.warning(
-                "Skipping INSERT for table '%s': %s", table, exc
-            )
+            logger.warning("Skipping INSERT for table '%s': %s", table, exc)
             restored[table] = 0
 
-    # Reset sequences
+    # Reset sequences (skip tables without a single-column id / sequence)
     for table in EXPORT_TABLES:
+        if table in TABLES_NO_ID:
+            continue
         try:
-            await db.execute(
-                text(
-                    f"SELECT setval('\"{table}_id_seq\"',"
-                    f" COALESCE(MAX(id), 0) + 1, false) FROM \"{table}\""
+            async with db.begin_nested():
+                await db.execute(
+                    text(
+                        f"SELECT setval('\"{table}_id_seq\"',"
+                        f" COALESCE(MAX(id), 0) + 1, false) FROM \"{table}\""
+                    )
                 )
-            )
         except Exception as exc:
-            logger.debug(
-                "Could not reset sequence for '%s': %s", table, exc
-            )
+            logger.debug("Could not reset sequence for '%s': %s", table, exc)
 
     return {"restored": restored}
 
@@ -222,9 +232,10 @@ async def reset_data(
     cleared: list[str] = []
     for table in tables_to_clear:
         try:
-            await db.execute(
-                text(f'TRUNCATE "{table}" RESTART IDENTITY CASCADE')
-            )
+            async with db.begin_nested():
+                await db.execute(
+                    text(f'TRUNCATE "{table}" RESTART IDENTITY CASCADE')
+                )
             cleared.append(table)
         except Exception as exc:
             logger.warning("Skipping TRUNCATE for table '%s': %s", table, exc)
