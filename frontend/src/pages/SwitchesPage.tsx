@@ -336,7 +336,30 @@ const SwitchExpanded: React.FC<{
     staleTime: 30_000,
   })
 
-  if (isLoading) return <div className="py-6 flex justify-center"><LoadingSpinner /></div>
+  if (isLoading) return (
+    <div className="border-t border-gray-100 pt-4 space-y-4 animate-pulse">
+      {/* Stats skeleton */}
+      <div className="flex items-center gap-4">
+        {[60, 50, 55].map((w, i) => (
+          <div key={i} className="h-3 bg-gray-200 rounded-full" style={{ width: w }} />
+        ))}
+      </div>
+      {/* Port row skeleton */}
+      <div className="bg-gray-800 rounded-xl p-3">
+        <div className="flex gap-1 flex-wrap">
+          {Array.from({ length: 24 }).map((_, i) => (
+            <div key={i} className="w-7 h-7 rounded bg-gray-600 opacity-50" />
+          ))}
+        </div>
+      </div>
+      {/* Table skeleton */}
+      <div className="space-y-1.5">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-9 bg-gray-100 rounded-lg" />
+        ))}
+      </div>
+    </div>
+  )
   if (!ports || ports.length === 0) return <p className="text-sm text-gray-400 py-4">Nessuna porta configurata.</p>
 
   const connectedCount = ports.filter(p => p.linked_interface !== null).length
