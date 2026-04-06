@@ -78,8 +78,7 @@ const DeviceDetailPage: React.FC = () => {
     mutationFn: ({ a, b }: { a: number; b: number }) =>
       cablesApi.create({ interface_a_id: a, interface_b_id: b }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['device-ports', deviceId] })
-      qc.invalidateQueries({ queryKey: ['device-ports'] })
+      qc.invalidateQueries({ queryKey: ['devices', deviceId, 'ports'] })
       qc.invalidateQueries({ queryKey: ['connections'] })
       setLinkingIface(null); setLinkTargetDeviceId(''); setLinkTargetIfaceId('')
     },
@@ -89,8 +88,7 @@ const DeviceDetailPage: React.FC = () => {
   const deleteCable = useMutation({
     mutationFn: (cableId: number) => cablesApi.delete(cableId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['device-ports', deviceId] })
-      qc.invalidateQueries({ queryKey: ['device-ports'] })
+      qc.invalidateQueries({ queryKey: ['devices', deviceId, 'ports'] })
       qc.invalidateQueries({ queryKey: ['connections'] })
     },
     onError: () => addToast('Errore durante la disconnessione', 'error'),
@@ -226,7 +224,6 @@ const DeviceDetailPage: React.FC = () => {
     { key: 'label', header: 'Etichetta', render: (i) => <span className="text-gray-500">{i.label ?? '—'}</span> },
     { key: 'if_type', header: 'Tipo', render: (i) => <span className="text-xs text-gray-600">{i.if_type}</span> },
     { key: 'mac_address', header: 'MAC', render: (i) => <span className="font-mono text-xs text-gray-600">{i.mac_address ?? '—'}</span> },
-    { key: 'speed_mbps', header: 'Velocità', render: (i) => <span className="text-gray-500 text-xs">{i.speed_mbps ? `${i.speed_mbps} Mbps` : '—'}</span> },
     { key: 'room_destination', header: 'Stanza', render: (i) => <span className="text-gray-500 text-xs">{i.room_destination ?? '—'}</span> },
     {
       key: 'id' as any,
