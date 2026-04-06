@@ -10,6 +10,7 @@ import EmptyState from '../components/common/EmptyState'
 import QuickAddVendorModal from '../components/common/QuickAddVendorModal'
 import { PortOptionGroups } from '../utils/portOptions'
 import { QK } from '../utils/queryKeys'
+import DeviceCombobox from '../components/common/DeviceCombobox'
 import type { Device, SwitchPortDetail, DevicePortDetail } from '../types'
 
 // ─── Port dot ────────────────────────────────────────────────────────────────
@@ -68,16 +69,9 @@ const SwitchPortEditModal: React.FC<{
   const [speedMbps, setSpeedMbps] = useState('')
   const [linkMode, setLinkMode] = useState<'keep' | 'unlink' | 'new'>('keep')
   const [targetIfaceId, setTargetIfaceId] = useState<number | null>(null)
-  const [targetDeviceId, setTargetDeviceId] = useState<number | ''>('')
+  const [targetDeviceId, setTargetDeviceId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const { data: allDevices } = useQuery({
-    queryKey: QK.devices.forLink(),
-    queryFn: () => devicesApi.list({ size: 500, exclude_device_type: 'patch_panel' }),
-    enabled: isOpen,
-    staleTime: 60_000,
-  })
 
   const { data: targetDevicePorts } = useQuery<DevicePortDetail[]>({
     queryKey: QK.devices.ports(targetDeviceId as number),
@@ -102,7 +96,7 @@ const SwitchPortEditModal: React.FC<{
       setSpeedMbps(port.interface.speed_mbps != null ? String(port.interface.speed_mbps) : '')
       setLinkMode('keep')
       setTargetIfaceId(null)
-      setTargetDeviceId('')
+      setTargetDeviceId(null)
       setError(null)
     }
   }, [port, isOpen])
@@ -262,22 +256,16 @@ const SwitchPortEditModal: React.FC<{
 
             {linkMode === 'new' && (
               <div className="space-y-2 pt-1">
-                {/* Step 1: pick device */}
+                {/* Step 1: pick device via combobox */}
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Dispositivo</label>
-                  <select
+                  <DeviceCombobox
                     value={targetDeviceId}
-                    onChange={e => { setTargetDeviceId(e.target.value ? Number(e.target.value) : ''); setTargetIfaceId(null) }}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none bg-white"
-                  >
-                    <option value="">— seleziona dispositivo —</option>
-                    {(allDevices?.items ?? []).filter(d => d.id !== deviceId).map(d => (
-                      <option key={d.id} value={d.id}>
-                        {d.notes || d.name}{d.primary_ip ? ` · ${d.primary_ip}` : ''}
-                        {d.cabinet_name ? ` · ${d.cabinet_name}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(id) => { setTargetDeviceId(id); setTargetIfaceId(null) }}
+                    excludeDeviceId={deviceId}
+                    excludeDeviceType="patch_panel"
+                    placeholder="Cerca dispositivo..."
+                  />
                 </div>
                 {/* Step 2: pick interface */}
                 {targetDeviceId && (
