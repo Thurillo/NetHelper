@@ -39,7 +39,7 @@ const DeviceCombobox: React.FC<DeviceComboboxProps> = ({
   const { data, isFetching } = useQuery({
     queryKey: ['device-combobox', search, deviceType, excludeDeviceType],
     queryFn: () => devicesApi.list({
-      search: search || undefined,
+      q: search || undefined,
       device_type: deviceType,
       exclude_device_type: Array.isArray(excludeDeviceType) ? excludeDeviceType[0] : excludeDeviceType,
       size: 30,

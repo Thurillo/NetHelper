@@ -90,29 +90,23 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
   })
   const otherPPs = (allPPs?.items ?? []).filter((pp: Device) => pp.id !== deviceId)
 
-  // Dispositivi (esclusi switch e patch panel)
-  const { data: devicesData } = useQuery({
-    queryKey: ['devices', 'for-pp-link', deviceTypeFilter, onlyAvailable],
+  // Dispositivi (esclusi switch e patch panel) — ricerca server-side
+  const { data: devicesData, isFetching: devicesFetching } = useQuery({
+    queryKey: ['devices', 'for-pp-link', deviceTypeFilter, onlyAvailable, deviceSearch],
     queryFn: () => devicesApi.list({
-      size: 500,
-      ...(deviceTypeFilter ? { device_type: deviceTypeFilter as any } : {}),
+      size: 30,
+      q: deviceSearch || undefined,
+      ...(deviceTypeFilter ? { device_type: deviceTypeFilter as any } : { exclude_device_type: 'patch_panel' }),
       ...(onlyAvailable ? { not_connected_to_pp: true } : {}),
     }),
-    staleTime: 30_000,
+    staleTime: 10_000,
     enabled: isOpen && connTarget === 'device',
+    placeholderData: (prev) => prev,
   })
 
-  // Client-side filter: exclude switches and patch panels, apply text search
-  const filteredDevices = (devicesData?.items ?? []).filter(d => {
-    if (d.device_type === 'switch' || d.device_type === 'patch_panel') return false
-    if (!deviceSearch) return true
-    const q = deviceSearch.toLowerCase()
-    return (
-      d.name.toLowerCase().includes(q) ||
-      (d.primary_ip ?? '').includes(q) ||
-      (d.model ?? '').toLowerCase().includes(q)
-    )
-  })
+  const filteredDevices = (devicesData?.items ?? []).filter(d =>
+    d.device_type !== 'switch' && d.device_type !== 'patch_panel'
+  )
 
   useEffect(() => {
     if (port) {
@@ -440,10 +434,13 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
               <input
                 type="text"
                 value={deviceSearch}
-                onChange={e => setDeviceSearch(e.target.value)}
+                onChange={e => { setDeviceSearch(e.target.value); setSelectedDeviceId('') }}
                 placeholder="Cerca nome, IP…"
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
+              {devicesFetching && (
+                <span className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              )}
               <select
                 value={deviceTypeFilter}
                 onChange={e => { setDeviceTypeFilter(e.target.value); setSelectedDeviceId('') }}

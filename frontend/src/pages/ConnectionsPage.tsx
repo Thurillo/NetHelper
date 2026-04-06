@@ -41,7 +41,7 @@ const ConnectionsPage: React.FC = () => {
 
   const { data: switches } = useQuery({
     queryKey: ['devices-switches'],
-    queryFn: () => devicesApi.list({ device_type: 'switch', size: 500 }),
+    queryFn: () => devicesApi.list({ device_type: 'switch', size: 100 }),
   })
 
   const { data: sites } = useQuery({

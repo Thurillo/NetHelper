@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Modal from '../common/Modal'
+import DeviceCombobox from '../common/DeviceCombobox'
 import { devicesApi } from '../../api/devices'
 import { switchesApi } from '../../api/switches'
 import { patchPanelsApi } from '../../api/patchPanels'
@@ -41,16 +42,16 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
   const [error, setError] = useState<string | null>(null)
 
   // Point A
-  const [deviceId, setDeviceId] = useState<number | ''>('')
+  const [deviceId, setDeviceId] = useState<number | null>(null)
   const [ifaceAId, setIfaceAId] = useState<number | ''>('')
 
   // Point B (patch panel)
-  const [ppId, setPpId] = useState<number | ''>('')
+  const [ppId, setPpId] = useState<number | null>(null)
   const [ppIfaceDevSide, setPpIfaceDevSide] = useState<number | ''>('')
   const [ppIfaceSwSide, setPpIfaceSwSide] = useState<number | ''>('')
 
   // Point C (switch)
-  const [switchId, setSwitchId] = useState<number | ''>('')
+  const [switchId, setSwitchId] = useState<number | null>(null)
   const [ifaceCId, setIfaceCId] = useState<number | ''>('')
 
   // ── Prefill when editing ─────────────────────────────────────────────────
@@ -58,18 +59,18 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
     if (!isOpen) return
     if (editing) {
       setMode(editing.pp_id ? 'via_pp' : 'direct')
-      setDeviceId(editing.device_id ?? '')
+      setDeviceId(editing.device_id ?? null)
       setIfaceAId(editing.iface_a_id ?? '')
-      setPpId(editing.pp_id ?? '')
+      setPpId(editing.pp_id ?? null)
       setPpIfaceDevSide(editing.iface_b_pp_side ?? '')
       setPpIfaceSwSide(editing.iface_b_sw_side ?? '')
-      setSwitchId(editing.switch_id ?? '')
+      setSwitchId(editing.switch_id ?? null)
       setIfaceCId(editing.iface_c_id ?? '')
     } else {
       setMode('direct')
-      setDeviceId(''); setIfaceAId('')
-      setPpId(''); setPpIfaceDevSide(''); setPpIfaceSwSide('')
-      setSwitchId(''); setIfaceCId('')
+      setDeviceId(null); setIfaceAId('')
+      setPpId(null); setPpIfaceDevSide(''); setPpIfaceSwSide('')
+      setSwitchId(null); setIfaceCId('')
     }
     setError(null)
   }, [isOpen, editing])
@@ -81,14 +82,6 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
 
   // ── Data fetches ─────────────────────────────────────────────────────────
 
-  const { data: endDevices } = useQuery({
-    queryKey: ['devices-end'],
-    queryFn: () => devicesApi.list({ size: 500, exclude_device_type: 'patch_panel' }),
-    enabled: isOpen,
-    staleTime: 30_000,
-  })
-  const endDeviceList = (endDevices?.items ?? []).filter(d => d.device_type !== 'switch')
-
   /** Usa /devices/{id}/ports per avere info sul linked_interface di ogni porta */
   const { data: devicePorts } = useQuery({
     queryKey: QK.devices.ports(deviceId as number),
@@ -97,25 +90,11 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
     staleTime: 10_000,
   })
 
-  const { data: switches } = useQuery({
-    queryKey: ['devices-switches'],
-    queryFn: () => devicesApi.list({ device_type: 'switch', size: 500 }),
-    enabled: isOpen,
-    staleTime: 30_000,
-  })
-
   const { data: switchPorts } = useQuery({
     queryKey: ['switch-ports', switchId],
     queryFn: () => switchesApi.getPorts(switchId as number),
     enabled: isOpen && !!switchId,
     staleTime: 10_000,
-  })
-
-  const { data: patchPanels } = useQuery({
-    queryKey: ['patch-panels-all'],
-    queryFn: () => patchPanelsApi.list({ size: 500 }),
-    enabled: isOpen && mode === 'via_pp',
-    staleTime: 30_000,
   })
 
   const { data: ppPorts } = useQuery({
@@ -205,12 +184,12 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={lbl}>Dispositivo</label>
-            <select value={deviceId} onChange={e => setDeviceId(e.target.value ? Number(e.target.value) : '')} className={sel}>
-              <option value="">— seleziona —</option>
-              {endDeviceList.map(d => (
-                <option key={d.id} value={d.id}>{d.notes || d.name}{d.primary_ip ? ` (${d.primary_ip})` : ''}</option>
-              ))}
-            </select>
+            <DeviceCombobox
+              value={deviceId}
+              onChange={(id) => setDeviceId(id)}
+              excludeDeviceType="patch_panel"
+              placeholder="Cerca dispositivo..."
+            />
           </div>
           <div>
             <label className={lbl}>Interfaccia</label>
@@ -229,12 +208,12 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
             <SectionLabel>Punto B — Patch Panel</SectionLabel>
             <div>
               <label className={lbl}>Patch Panel</label>
-              <select value={ppId} onChange={e => setPpId(e.target.value ? Number(e.target.value) : '')} className={sel}>
-                <option value="">— seleziona —</option>
-                {patchPanels?.items.map(pp => (
-                  <option key={pp.id} value={pp.id}>{pp.name}{pp.cabinet_name ? ` (${pp.cabinet_name})` : ''}</option>
-                ))}
-              </select>
+              <DeviceCombobox
+                value={ppId}
+                onChange={(id) => setPpId(id)}
+                deviceType="patch_panel"
+                placeholder="Cerca patch panel..."
+              />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
               <div>
@@ -278,12 +257,12 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={lbl}>Switch</label>
-            <select value={switchId} onChange={e => setSwitchId(e.target.value ? Number(e.target.value) : '')} className={sel}>
-              <option value="">— seleziona —</option>
-              {switches?.items.map(sw => (
-                <option key={sw.id} value={sw.id}>{sw.notes || sw.name}{sw.primary_ip ? ` (${sw.primary_ip})` : ''}</option>
-              ))}
-            </select>
+            <DeviceCombobox
+              value={switchId}
+              onChange={(id) => setSwitchId(id)}
+              deviceType="switch"
+              placeholder="Cerca switch..."
+            />
           </div>
           <div>
             <label className={lbl}>Porta switch</label>

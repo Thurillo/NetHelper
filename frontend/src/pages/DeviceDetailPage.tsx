@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Edit2, Trash2, ChevronDown, ChevronRight, Eye, EyeOff, Link2, Link2Off, ExternalLink, Unlink } from 'lucide-react'
+import DeviceCombobox from '../components/common/DeviceCombobox'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDevice, useDeviceInterfaces, useDevicePorts, useDeviceIpAddresses, useUpdateDevice, useDeleteDevice, useDeviceConnectionsPreview } from '../hooks/useDevices'
 import { cabinetsApi } from '../api/cabinets'
@@ -56,18 +57,11 @@ const DeviceDetailPage: React.FC = () => {
 
   // State per modal di collegamento interfaccia
   const [linkingIface, setLinkingIface] = useState<NetworkInterface | null>(null)
-  const [linkTargetDeviceId, setLinkTargetDeviceId] = useState<number | ''>('')
+  const [linkTargetDeviceId, setLinkTargetDeviceId] = useState<number | null>(null)
   const [linkTargetIfaceId, setLinkTargetIfaceId] = useState<number | ''>('')
   const { data: cabinetsData } = useQuery({ queryKey: ['cabinets', 'all'], queryFn: () => cabinetsApi.list({ size: 100 }), staleTime: 60_000 })
   const { data: vendorsData } = useQuery({ queryKey: ['vendors', 'all'], queryFn: () => vendorsApi.list({ size: 100 }), staleTime: 60_000 })
 
-  // Dati per modal collegamento interfaccia
-  const { data: allDevices } = useQuery({
-    queryKey: ['devices-all-for-link'],
-    queryFn: () => devicesApi.list({ size: 500 }),
-    enabled: !!linkingIface,
-    staleTime: 30_000,
-  })
   // Usa getPorts (che include linked_interface) per mostrare stato occupata/libera
   const { data: targetPorts } = useQuery({
     queryKey: QK.devices.ports(linkTargetDeviceId as number),
@@ -83,7 +77,7 @@ const DeviceDetailPage: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['devices', deviceId, 'ports'] })
       qc.invalidateQueries({ queryKey: ['connections'] })
       addToast('Collegamento creato', 'success')
-      setLinkingIface(null); setLinkTargetDeviceId(''); setLinkTargetIfaceId('')
+      setLinkingIface(null); setLinkTargetDeviceId(null); setLinkTargetIfaceId('')
     },
     onError: () => addToast('Errore durante il collegamento', 'error'),
   })
@@ -269,7 +263,7 @@ const DeviceDetailPage: React.FC = () => {
         }
         return (
           <button
-            onClick={(e) => { e.stopPropagation(); setLinkingIface(i); setLinkTargetDeviceId(''); setLinkTargetIfaceId('') }}
+            onClick={(e) => { e.stopPropagation(); setLinkingIface(i); setLinkTargetDeviceId(null); setLinkTargetIfaceId('') }}
             title="Collega a un'altra interfaccia"
             className="p-1 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
           >
@@ -562,12 +556,12 @@ const DeviceDetailPage: React.FC = () => {
       {/* Modal collegamento interfaccia */}
       <Modal
         isOpen={!!linkingIface}
-        onClose={() => { setLinkingIface(null); setLinkTargetDeviceId(''); setLinkTargetIfaceId('') }}
+        onClose={() => { setLinkingIface(null); setLinkTargetDeviceId(null); setLinkTargetIfaceId('') }}
         title={`Collega interfaccia: ${linkingIface?.name}`}
         size="md"
         footer={
           <>
-            <button onClick={() => { setLinkingIface(null); setLinkTargetDeviceId(''); setLinkTargetIfaceId('') }} className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Annulla</button>
+            <button onClick={() => { setLinkingIface(null); setLinkTargetDeviceId(null); setLinkTargetIfaceId('') }} className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Annulla</button>
             <button
               onClick={() => { if (linkingIface && linkTargetIfaceId) createCable.mutate({ a: linkingIface.id, b: linkTargetIfaceId as number }) }}
               disabled={!linkTargetIfaceId || createCable.isPending}
@@ -581,16 +575,12 @@ const DeviceDetailPage: React.FC = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Dispositivo</label>
-            <select
+            <DeviceCombobox
               value={linkTargetDeviceId}
-              onChange={e => { setLinkTargetDeviceId(e.target.value ? Number(e.target.value) : ''); setLinkTargetIfaceId('') }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-            >
-              <option value="">— seleziona dispositivo —</option>
-              {(allDevices?.items ?? []).filter(d => d.id !== deviceId).map(d => (
-                <option key={d.id} value={d.id}>{d.name}{d.primary_ip ? ` (${d.primary_ip})` : ''}</option>
-              ))}
-            </select>
+              onChange={(id) => { setLinkTargetDeviceId(id); setLinkTargetIfaceId('') }}
+              excludeDeviceId={deviceId}
+              placeholder="Cerca dispositivo..."
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Interfaccia</label>
