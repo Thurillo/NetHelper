@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Columns3, Download } from 'lucide-react'
+import { Plus, Columns3, Download, Trash2, Server, CheckSquare, Square } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { devicesApi } from '../api/devices'
 import { sitesApi } from '../api/sites'
@@ -61,6 +61,12 @@ const DevicesPage: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<Device | null>(null)
   const [previewEnabled, setPreviewEnabled] = useState(false)
   const [colMenuOpen, setColMenuOpen] = useState(false)
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkAction, setBulkAction] = useState<'cabinet' | 'status' | 'delete' | null>(null)
+  const [bulkCabinetId, setBulkCabinetId] = useState<number | ''>('')
+  const [bulkStatus, setBulkStatus] = useState<string>('')
+  const [bulkConfirmDelete, setBulkConfirmDelete] = useState(false)
   const [showCabinetModal, setShowCabinetModal] = useState(false)
   const [cabinetForm, setCabinetForm] = useState<CabinetCreate>(defaultCabinetForm)
   const [cabinetError, setCabinetError] = useState<string | null>(null)
@@ -143,6 +149,43 @@ const DevicesPage: React.FC = () => {
   const deleteDevice = useDeleteDevice()
   const { data: connectionsPreview, isLoading: previewLoading } = useDeviceConnectionsPreview(deleteTarget?.id, previewEnabled)
 
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (args: { ids: number[]; data: { cabinet_id?: number | null; status?: string } }) =>
+      devicesApi.bulkUpdate(args.ids, args.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['devices'] })
+      setSelectedIds(new Set())
+      setBulkAction(null)
+    },
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: number[]) => devicesApi.bulkDelete(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['devices'] })
+      setSelectedIds(new Set())
+      setBulkAction(null)
+      setBulkConfirmDelete(false)
+    },
+  })
+
+  const toggleSelect = (id: number) => setSelectedIds(prev => {
+    const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s
+  })
+  const toggleSelectAll = () => {
+    const pageIds = (data?.items ?? []).map(d => d.id)
+    const allSelected = pageIds.every(id => selectedIds.has(id))
+    setSelectedIds(prev => {
+      const s = new Set(prev)
+      if (allSelected) pageIds.forEach(id => s.delete(id))
+      else pageIds.forEach(id => s.add(id))
+      return s
+    })
+  }
+  const pageIds = (data?.items ?? []).map(d => d.id)
+  const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.has(id))
+  const somePageSelected = pageIds.some(id => selectedIds.has(id))
+
   const openCreate = () => { setEditing(null); setForm(defaultForm); setError(null); setIsModalOpen(true) }
   const openEdit = (d: Device) => {
     setEditing(d)
@@ -195,6 +238,15 @@ const DevicesPage: React.FC = () => {
   }
 
   const allColumns: Column<Device>[] = [
+    { key: 'select', header: (
+      <button onClick={(e) => { e.stopPropagation(); toggleSelectAll() }} className="p-0.5 text-gray-400 hover:text-primary-600">
+        {allPageSelected ? <CheckSquare size={16} className="text-primary-600" /> : somePageSelected ? <CheckSquare size={16} className="text-gray-400" /> : <Square size={16} />}
+      </button>
+    ) as any, render: (d) => (
+      <button onClick={(e) => { e.stopPropagation(); toggleSelect(d.id) }} className="p-0.5 text-gray-400 hover:text-primary-600">
+        {selectedIds.has(d.id) ? <CheckSquare size={16} className="text-primary-600" /> : <Square size={16} />}
+      </button>
+    )},
     { key: 'name', header: 'Nome', sortable: true, render: (d) => {
       const nameIsIp = d.name === d.primary_ip
       const label = nameIsIp && d.notes ? d.notes : d.name
@@ -236,7 +288,7 @@ const DevicesPage: React.FC = () => {
     }},
   ]
 
-  const columns: Column<Device>[] = allColumns.filter(c => c.key === 'actions' || visibleCols.has(c.key as string))
+  const columns: Column<Device>[] = allColumns.filter(c => c.key === 'actions' || c.key === 'select' || visibleCols.has(c.key as string))
 
   if (isAdmin()) {
     allColumns.push({ key: 'actions', header: '', render: (d) => (
@@ -363,6 +415,96 @@ const DevicesPage: React.FC = () => {
           <Table columns={columns} data={data?.items ?? []} keyExtractor={(d) => d.id} onRowClick={(d) => navigate(`/dispositivi/${d.id}`)} emptyTitle="Nessun dispositivo" emptyDescription="Crea il primo dispositivo." />
           {data && <Pagination page={page} pages={data.pages} total={data.total} size={data.size} onPageChange={setPage} />}
         </>
+      )}
+
+      {/* ── Bulk action floating bar ─────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white rounded-2xl shadow-2xl px-5 py-3 animate-in slide-in-from-bottom-4 duration-200">
+          <span className="text-sm font-medium text-gray-300 whitespace-nowrap">{selectedIds.size} selezionati</span>
+          <div className="w-px h-5 bg-gray-600" />
+
+          {/* Sposta in armadio */}
+          {bulkAction === 'cabinet' ? (
+            <div className="flex items-center gap-2">
+              <select
+                value={bulkCabinetId}
+                onChange={e => setBulkCabinetId(e.target.value ? Number(e.target.value) : '')}
+                className="text-sm bg-gray-800 border border-gray-600 rounded-lg px-2 py-1 text-white"
+              >
+                <option value="">— seleziona armadio —</option>
+                <option value="0">Nessun armadio</option>
+                {cabinetsData?.items.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button
+                onClick={() => bulkUpdateMutation.mutate({ ids: Array.from(selectedIds), data: { cabinet_id: bulkCabinetId === '' ? undefined : bulkCabinetId === 0 ? null : bulkCabinetId } })}
+                disabled={bulkCabinetId === '' || bulkUpdateMutation.isPending}
+                className="px-3 py-1 text-sm bg-primary-600 hover:bg-primary-500 rounded-lg disabled:opacity-50"
+              >Applica</button>
+              <button onClick={() => setBulkAction(null)} className="px-2 py-1 text-sm text-gray-400 hover:text-white">✕</button>
+            </div>
+          ) : (
+            <button onClick={() => { setBulkAction('cabinet'); setBulkCabinetId('') }}
+              className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors">
+              <Server size={14} />Sposta armadio
+            </button>
+          )}
+
+          <div className="w-px h-5 bg-gray-600" />
+
+          {/* Cambia stato */}
+          {bulkAction === 'status' ? (
+            <div className="flex items-center gap-2">
+              <select
+                value={bulkStatus}
+                onChange={e => setBulkStatus(e.target.value)}
+                className="text-sm bg-gray-800 border border-gray-600 rounded-lg px-2 py-1 text-white"
+              >
+                <option value="">— seleziona stato —</option>
+                <option value="active">Attivo</option>
+                <option value="inactive">Inattivo</option>
+                <option value="planned">Pianificato</option>
+                <option value="decommissioned">Dismesso</option>
+              </select>
+              <button
+                onClick={() => bulkUpdateMutation.mutate({ ids: Array.from(selectedIds), data: { status: bulkStatus } })}
+                disabled={!bulkStatus || bulkUpdateMutation.isPending}
+                className="px-3 py-1 text-sm bg-primary-600 hover:bg-primary-500 rounded-lg disabled:opacity-50"
+              >Applica</button>
+              <button onClick={() => setBulkAction(null)} className="px-2 py-1 text-sm text-gray-400 hover:text-white">✕</button>
+            </div>
+          ) : (
+            <button onClick={() => { setBulkAction('status'); setBulkStatus('') }}
+              className="text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors">
+              Cambia stato
+            </button>
+          )}
+
+          <div className="w-px h-5 bg-gray-600" />
+
+          {/* Elimina */}
+          {bulkConfirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-red-400">Eliminare {selectedIds.size} dispositivi?</span>
+              <button
+                onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+                disabled={bulkDeleteMutation.isPending}
+                className="px-3 py-1 text-sm bg-red-600 hover:bg-red-500 rounded-lg disabled:opacity-50"
+              >Conferma</button>
+              <button onClick={() => setBulkConfirmDelete(false)} className="px-2 py-1 text-sm text-gray-400 hover:text-white">✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setBulkConfirmDelete(true)}
+              className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg hover:bg-red-800 text-red-400 hover:text-red-300 transition-colors">
+              <Trash2 size={14} />Elimina
+            </button>
+          )}
+
+          <div className="w-px h-5 bg-gray-600" />
+          <button onClick={() => { setSelectedIds(new Set()); setBulkAction(null); setBulkConfirmDelete(false) }}
+            className="text-sm text-gray-400 hover:text-white px-2">
+            Annulla
+          </button>
+        </div>
       )}
 
       {/* Create/Edit modal */}

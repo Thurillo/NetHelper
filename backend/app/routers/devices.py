@@ -24,7 +24,12 @@ from app.models.device import Device
 from app.models.interface import Interface
 from app.models.scan_job import ScanStatus
 from app.schemas.cable import InterfaceMinimal
-from app.schemas.device import DeviceBulkCreateRequest, DeviceBulkCreateResponse, DeviceConnectionsPreview, DeviceCreate, DeviceRead, DeviceScanRequest, DeviceUpdate
+from app.schemas.device import (
+    DeviceBulkCreateRequest, DeviceBulkCreateResponse,
+    DeviceBulkUpdateRequest, DeviceBulkUpdateResponse,
+    DeviceBulkDeleteRequest, DeviceBulkDeleteResponse,
+    DeviceConnectionsPreview, DeviceCreate, DeviceRead, DeviceScanRequest, DeviceUpdate,
+)
 from app.schemas.interface import InterfaceRead
 from app.schemas.ip_address import IpAddressRead
 from app.schemas.mac_entry import MacEntryRead
@@ -259,6 +264,61 @@ async def update_device(
                      entity_id=updated.id, client_ip=client_ip,
                      description=f"Updated device '{updated.name}'.")
     return DeviceRead.model_validate(await _reload_device(db, updated.id))
+
+
+@router.patch("/bulk-update", response_model=DeviceBulkUpdateResponse)
+async def bulk_update_devices(
+    body: DeviceBulkUpdateRequest,
+    request: Request,
+    current_user: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> DeviceBulkUpdateResponse:
+    """Aggiorna in blocco cabinet_id e/o status su una lista di device."""
+    if not body.ids:
+        return DeviceBulkUpdateResponse(updated=0)
+    update_data: dict = {}
+    if body.cabinet_id is not None:
+        update_data["cabinet_id"] = body.cabinet_id
+    if body.status is not None:
+        update_data["status"] = body.status
+    if not update_data:
+        return DeviceBulkUpdateResponse(updated=0)
+    from sqlalchemy import update as sa_update
+    stmt = (
+        sa_update(Device)
+        .where(Device.id.in_(body.ids))
+        .values(**update_data)
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    client_ip = getattr(request.state, "client_ip", None)
+    await log_action(db, user_id=current_user.id, action="bulk_update", entity_table="device",
+                     entity_id=None, client_ip=client_ip,
+                     description=f"Bulk updated {result.rowcount} devices: {update_data}")
+    return DeviceBulkUpdateResponse(updated=result.rowcount)
+
+
+@router.delete("/bulk-delete", response_model=DeviceBulkDeleteResponse)
+async def bulk_delete_devices(
+    body: DeviceBulkDeleteRequest,
+    request: Request,
+    current_user: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> DeviceBulkDeleteResponse:
+    """Elimina in blocco una lista di device."""
+    if not body.ids:
+        return DeviceBulkDeleteResponse(deleted=0)
+    deleted = 0
+    for device_id in body.ids:
+        device = await crud_device.get(db, device_id)
+        if device:
+            await crud_device.remove(db, device_id)
+            deleted += 1
+    client_ip = getattr(request.state, "client_ip", None)
+    await log_action(db, user_id=current_user.id, action="bulk_delete", entity_table="device",
+                     entity_id=None, client_ip=client_ip,
+                     description=f"Bulk deleted {deleted} devices: ids={body.ids}")
+    return DeviceBulkDeleteResponse(deleted=deleted)
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)

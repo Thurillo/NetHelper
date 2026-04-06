@@ -69,4 +69,14 @@ export const devicesApi = {
     const response = await apiClient.get<DeviceConnectionsPreview>(`/devices/${id}/connections-preview`)
     return response.data
   },
+
+  bulkUpdate: async (ids: number[], data: { cabinet_id?: number | null; status?: string }): Promise<{ updated: number }> => {
+    const response = await apiClient.patch<{ updated: number }>('/devices/bulk-update', { ids, ...data })
+    return response.data
+  },
+
+  bulkDelete: async (ids: number[]): Promise<{ deleted: number }> => {
+    const response = await apiClient.delete<{ deleted: number }>('/devices/bulk-delete', { data: { ids } })
+    return response.data
+  },
 }

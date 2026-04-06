@@ -192,6 +192,24 @@ class DeviceBulkCreateResponse(BaseModel):
     errors: list[str]
 
 
+class DeviceBulkUpdateRequest(BaseModel):
+    ids: list[int]
+    cabinet_id: Optional[int] = None
+    status: Optional[DeviceStatus] = None
+
+
+class DeviceBulkUpdateResponse(BaseModel):
+    updated: int
+
+
+class DeviceBulkDeleteRequest(BaseModel):
+    ids: list[int]
+
+
+class DeviceBulkDeleteResponse(BaseModel):
+    deleted: int
+
+
 class DeviceScanRequest(BaseModel):
     scan_type: ScanType
 
