@@ -16,6 +16,7 @@ import Pagination from '../components/common/Pagination'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../components/common/Badge'
+import LastSeenBadge from '../components/common/LastSeenBadge'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import type { Device, DeviceCreate, DeviceType, DeviceStatus, DeviceFilters, CabinetCreate, SiteCreate } from '../types'
@@ -221,7 +222,12 @@ const DevicesPage: React.FC = () => {
         ? <span className="text-gray-600 text-xs max-w-xs truncate block" title={d.notes}>{d.notes}</span>
         : <span className="text-gray-300 text-xs">—</span>
     )},
-    { key: 'last_seen', header: 'Ultimo scan', render: (d) => <span className="text-gray-400 text-xs">{d.last_seen ? format(new Date(d.last_seen), 'dd/MM HH:mm', { locale: it }) : '—'}</span> },
+    { key: 'last_seen', header: 'Ultimo scan', render: (d) => (
+      <div className="flex items-center gap-1.5">
+        <LastSeenBadge lastSeen={d.last_seen} compact />
+        <span className="text-gray-400 text-xs">{d.last_seen ? format(new Date(d.last_seen), 'dd/MM HH:mm', { locale: it }) : '—'}</span>
+      </div>
+    )},
     { key: 'checkmk', header: 'CheckMK', render: (d) => {
       if (!checkmkStatus) return null
       const s = checkmkStatus[d.id]

@@ -13,6 +13,7 @@ import { devicesApi } from '../api/devices'
 import { PortOptionGroups } from '../utils/portOptions'
 import { DeviceTypeBadge, DeviceStatusBadge } from '../components/common/Badge'
 import CheckMKBadge from '../components/common/CheckMKBadge'
+import LastSeenBadge from '../components/common/LastSeenBadge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
@@ -220,11 +221,14 @@ const DeviceDetailPage: React.FC = () => {
   ]
 
   const interfaceColumns: Column<NetworkInterface>[] = [
-    { key: 'name', header: 'Nome', render: (i) => <span className="font-mono text-sm font-medium">{i.name}</span> },
-    { key: 'label', header: 'Etichetta', render: (i) => <span className="text-gray-500">{i.label ?? '—'}</span> },
+    { key: 'name', header: 'Nome', render: (i) => (
+      <div>
+        <span className="font-mono text-sm font-medium">{i.name}</span>
+        {i.label && <p className="text-xs text-gray-400 mt-0.5">{i.label}</p>}
+      </div>
+    )},
     { key: 'if_type', header: 'Tipo', render: (i) => <span className="text-xs text-gray-600">{i.if_type}</span> },
     { key: 'mac_address', header: 'MAC', render: (i) => <span className="font-mono text-xs text-gray-600">{i.mac_address ?? '—'}</span> },
-    { key: 'room_destination', header: 'Stanza', render: (i) => <span className="text-gray-500 text-xs">{i.room_destination ?? '—'}</span> },
     {
       key: 'id' as any,
       header: 'Connesso a',
@@ -333,7 +337,12 @@ const DeviceDetailPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Ultimo scan</p>
-                <p className="text-sm">{device.last_seen ? format(new Date(device.last_seen), 'dd/MM HH:mm', { locale: it }) : '—'}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <LastSeenBadge lastSeen={device.last_seen} />
+                  {device.last_seen && (
+                    <span className="text-xs text-gray-400">{format(new Date(device.last_seen), 'dd/MM HH:mm', { locale: it })}</span>
+                  )}
+                </div>
               </div>
               {device.mac_address && (
                 <div>
