@@ -4,7 +4,8 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy import or_, select
+from sqlalchemy import case, or_, select
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy.orm import selectinload
@@ -360,58 +361,47 @@ async def get_device_ports(
     device = await crud_device.get(db, device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found.")
-    # Query 1: all interfaces for device
-    interfaces = await crud_interface.get_by_device(db, device_id)
-    if not interfaces:
-        return []
 
-    iface_ids = [i.id for i in interfaces]
+    # Single JOIN query: Interface → Cable (optional) → LinkedInterface + LinkedDevice
+    # case() determines which end of the cable is "the other side"
+    LinkedIface = aliased(Interface)
+    LinkedDev = aliased(Device)
 
-    # Query 2: all cables touching these interfaces (one IN query)
-    cables_res = await db.execute(
-        select(Cable).where(
-            or_(Cable.interface_a_id.in_(iface_ids), Cable.interface_b_id.in_(iface_ids))
-        )
+    other_iface_id_expr = case(
+        (Cable.interface_a_id == Interface.id, Cable.interface_b_id),
+        else_=Cable.interface_a_id,
     )
-    cables = cables_res.scalars().all()
 
-    cable_by_iface: dict[int, Cable] = {}
-    for cable in cables:
-        if cable.interface_a_id in set(iface_ids):
-            cable_by_iface[cable.interface_a_id] = cable
-        if cable.interface_b_id in set(iface_ids):
-            cable_by_iface[cable.interface_b_id] = cable
-
-    # Query 3: all linked interfaces + their devices (one IN query)
-    iface_ids_set = set(iface_ids)
-    other_iface_ids = {
-        (cable.interface_b_id if cable.interface_a_id == iface_id else cable.interface_a_id)
-        for iface_id, cable in cable_by_iface.items()
-    }
-    linked_map: dict[int, InterfaceMinimal] = {}
-    if other_iface_ids:
-        linked_res = await db.execute(
-            select(Interface, Device)
-            .join(Device, Interface.device_id == Device.id)
-            .where(Interface.id.in_(other_iface_ids))
+    stmt = (
+        select(Interface, Cable, LinkedIface, LinkedDev)
+        .where(Interface.device_id == device_id)
+        .outerjoin(
+            Cable,
+            or_(Cable.interface_a_id == Interface.id, Cable.interface_b_id == Interface.id),
         )
-        for row in linked_res:
-            linked_map[row.Interface.id] = InterfaceMinimal(
-                id=row.Interface.id,
-                name=row.Interface.name,
-                label=row.Interface.label,
-                device_id=row.Device.id,
-                device_name=row.Device.name,
-            )
+        .outerjoin(LinkedIface, LinkedIface.id == other_iface_id_expr)
+        .outerjoin(LinkedDev, LinkedDev.id == LinkedIface.device_id)
+        .order_by(Interface.id)
+    )
+    rows = (await db.execute(stmt)).all()
 
     # Assemble result
     details = []
-    for iface in interfaces:
-        cable = cable_by_iface.get(iface.id)
+    for row in rows:
+        iface: Interface = row[0]
+        cable: Optional[Cable] = row[1]
+        linked_iface: Optional[Interface] = row[2]
+        linked_dev: Optional[Device] = row[3]
+
         linked_iface_detail = None
-        if cable:
-            other_id = cable.interface_b_id if cable.interface_a_id == iface.id else cable.interface_a_id
-            linked_iface_detail = linked_map.get(other_id)
+        if linked_iface and linked_dev:
+            linked_iface_detail = InterfaceMinimal(
+                id=linked_iface.id,
+                name=linked_iface.name,
+                label=linked_iface.label,
+                device_id=linked_dev.id,
+                device_name=linked_dev.name,
+            )
         details.append(DevicePortDetail(
             interface=InterfaceRead.model_validate(iface),
             linked_interface=linked_iface_detail,
