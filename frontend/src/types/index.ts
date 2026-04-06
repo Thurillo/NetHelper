@@ -769,6 +769,7 @@ export interface DeviceFilters {
   q?: string
   search?: string
   not_connected_to_pp?: boolean
+  no_cables?: boolean
   page?: number
   size?: number
 }

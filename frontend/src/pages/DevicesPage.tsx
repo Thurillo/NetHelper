@@ -83,6 +83,11 @@ const DevicesPage: React.FC = () => {
     setVisibleCols(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
 
   const { data, isLoading } = useDevices({ ...filters, search: search || undefined, page, size: 20, exclude_device_type: 'patch_panel' })
+  const { data: noCablesCount } = useQuery({
+    queryKey: ['devices', 'no-cables-count'],
+    queryFn: () => devicesApi.list({ no_cables: true, exclude_device_type: 'patch_panel', size: 1 }),
+    staleTime: 60_000,
+  })
   const { data: sitesData } = useQuery({ queryKey: ['sites', 'all'], queryFn: () => sitesApi.list({ size: 100 }), staleTime: 60_000 })
   const { data: cabinetsData } = useQuery({ queryKey: ['cabinets', 'all'], queryFn: () => cabinetsApi.list({ size: 100 }), staleTime: 60_000 })
   const { data: vendorsData } = useQuery({ queryKey: ['vendors', 'all'], queryFn: () => vendorsApi.list({ size: 100 }), staleTime: 60_000 })
@@ -281,6 +286,24 @@ const DevicesPage: React.FC = () => {
           <option value="">Tutte le sedi</option>
           {sitesData?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+
+        {/* Senza connessioni toggle */}
+        <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+          <input
+            type="checkbox"
+            checked={!!filters.no_cables}
+            onChange={e => { setFilters(f => ({ ...f, no_cables: e.target.checked || undefined })); setPage(1) }}
+            className="rounded border-gray-300 text-orange-500 focus:ring-orange-400"
+          />
+          <span className="text-sm text-gray-700 whitespace-nowrap">
+            Senza connessioni
+            {noCablesCount && noCablesCount.total > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">
+                {noCablesCount.total}
+              </span>
+            )}
+          </span>
+        </label>
 
         {/* Export CSV */}
         <button

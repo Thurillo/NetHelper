@@ -68,6 +68,7 @@ async def list_devices(
     status_filter: Optional[str] = None,
     q: Optional[str] = None,
     not_connected_to_pp: bool = False,
+    no_cables: bool = False,
 ) -> PaginatedResponse[DeviceRead]:
     filter_kwargs = dict(
         site_id=site_id,
@@ -77,6 +78,7 @@ async def list_devices(
         status=status_filter,
         q=q,
         not_connected_to_pp=not_connected_to_pp,
+        no_cables=no_cables,
     )
     devices = await crud_device.search(db, skip=(page - 1) * size, limit=size, **filter_kwargs)
     total = await crud_device.count_filtered(db, **filter_kwargs)

@@ -37,6 +37,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
         status: Optional[str] = None,
         q: Optional[str] = None,
         not_connected_to_pp: bool = False,
+        no_cables: bool = False,
     ):
         """Apply shared WHERE conditions to any statement."""
         if site_id is not None:
@@ -77,6 +78,17 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
                 .scalar_subquery()
             )
             base_stmt = base_stmt.where(Device.id.notin_(connected_device_ids))
+        if no_cables:
+            # Device IDs that have at least one interface connected to any cable
+            cabled_device_ids = (
+                select(Interface.device_id).where(
+                    or_(
+                        Interface.id.in_(select(Cable.interface_a_id)),
+                        Interface.id.in_(select(Cable.interface_b_id)),
+                    )
+                ).scalar_subquery()
+            )
+            base_stmt = base_stmt.where(Device.id.notin_(cabled_device_ids))
         return base_stmt
 
     async def search(
@@ -91,6 +103,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
         status: Optional[str] = None,
         q: Optional[str] = None,
         not_connected_to_pp: bool = False,
+        no_cables: bool = False,
     ) -> list[Device]:
         stmt = self._build_filter_stmt(
             select(Device).options(selectinload(Device.cabinet), selectinload(Device.vendor)),
@@ -101,6 +114,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
             status=status,
             q=q,
             not_connected_to_pp=not_connected_to_pp,
+            no_cables=no_cables,
         )
         stmt = stmt.offset(skip).limit(limit)
         result = await db.execute(stmt)
@@ -116,6 +130,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
         status: Optional[str] = None,
         q: Optional[str] = None,
         not_connected_to_pp: bool = False,
+        no_cables: bool = False,
     ) -> int:
         stmt = self._build_filter_stmt(
             select(func.count()).select_from(Device),
@@ -126,6 +141,7 @@ class CRUDDevice(CRUDBase[Device, DeviceCreate, DeviceUpdate]):
             status=status,
             q=q,
             not_connected_to_pp=not_connected_to_pp,
+            no_cables=no_cables,
         )
         result = await db.execute(stmt)
         return result.scalar_one()
