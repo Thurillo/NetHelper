@@ -130,6 +130,11 @@ const PortEditModal: React.FC<PortEditModalProps> = ({
     }
   }, [port])
 
+  // Reset error when modal closes
+  useEffect(() => {
+    if (!isOpen) setError(null)
+  }, [isOpen])
+
   // Carica porte switch quando viene selezionato uno switch
   useEffect(() => {
     if (selectedSwitchId) {

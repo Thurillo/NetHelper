@@ -129,7 +129,7 @@ const ConflictsPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Assegna ad armadio (opzionale)</label>
             <select
               value={selectedCabinetId}
-              onChange={(e) => setSelectedCabinetId(e.target.value ? Number(e.target.value) : '')}
+              onChange={(e) => { const v = e.target.value ? Number(e.target.value) : ''; setSelectedCabinetId(v); if (!v) setUPosition(1) }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="">-- Nessun armadio --</option>

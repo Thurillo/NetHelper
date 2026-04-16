@@ -15,7 +15,7 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
   const [customPortInput, setCustomPortInput] = useState('')
   const [portRangeFrom, setPortRangeFrom] = useState('')
   const [portRangeTo, setPortRangeTo] = useState('')
-  const [timeout, setTimeout] = useState(500)
+  const [scanTimeout, setScanTimeout] = useState(500)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -102,7 +102,7 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
         start_ip: ipStart,
         end_ip: ipEnd,
         ports: sortedPorts,
-        timeout_ms: timeout,
+        timeout_ms: scanTimeout,
       })
       setSuccess(true)
       onScanStarted?.(job.id)
@@ -244,8 +244,8 @@ const IpRangeScanForm: React.FC<IpRangeScanFormProps> = ({ onScanStarted }) => {
           type="number"
           min={100}
           max={10000}
-          value={timeout}
-          onChange={(e) => setTimeout(Number(e.target.value))}
+          value={scanTimeout}
+          onChange={(e) => setScanTimeout(Number(e.target.value))}
           className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
       </div>

@@ -95,5 +95,5 @@ export const useDeviceConnectionsPreview = (deviceId: number | undefined, enable
     queryKey: QK.devices.connectionsPreview(deviceId!),
     queryFn: () => devicesApi.getConnectionsPreview(deviceId!),
     enabled: !!deviceId && enabled,
-    staleTime: 0,
+    staleTime: 30_000,
   })

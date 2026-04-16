@@ -133,8 +133,7 @@ const AddConnectionModal: React.FC<Props> = ({ isOpen, onClose, editing }) => {
       qc.invalidateQueries({ queryKey: ['switch-ports'] })
       qc.invalidateQueries({ queryKey: ['pp-ports'] })
       qc.invalidateQueries({ queryKey: ['patch-panel-ports'] })
-      qc.invalidateQueries({ queryKey: ['devices'] }) // invalida tutti i ports sotto devices/*
-      qc.invalidateQueries({ queryKey: ['devices'] })
+      qc.invalidateQueries({ queryKey: ['devices'] }) // invalida ports, interfaces, ecc.
       onClose()
     },
     onError: (e: Error) => setError(e.message || 'Errore durante il salvataggio'),
