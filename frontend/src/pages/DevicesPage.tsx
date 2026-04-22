@@ -239,8 +239,10 @@ const DevicesPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name) { setError('Il nome è obbligatorio'); return }
-    if (editing) updateDevice.mutate({ id: editing.id, data: form })
-    else createDevice.mutate(form)
+    if (editing) {
+      const { ssh_password, ...rest } = form as Record<string, unknown>
+      updateDevice.mutate({ id: editing.id, data: ssh_password ? { ...rest, ssh_password } : rest })
+    } else createDevice.mutate(form)
   }
 
   const allColumns: Column<Device>[] = [

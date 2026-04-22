@@ -194,7 +194,7 @@ const DeviceDetailPage: React.FC = () => {
         snmp_v3_auth_protocol: (editForm.snmp_v3_auth_protocol as string) || null,
         snmp_v3_priv_protocol: (editForm.snmp_v3_priv_protocol as string) || null,
         ssh_username: (editForm.ssh_username as string) || null,
-        ssh_password: (editForm.ssh_password as string) || null,
+        ssh_password: (editForm.ssh_password as string) || undefined,
         ssh_port: editForm.ssh_port ? Number(editForm.ssh_port) : undefined,
         ssh_key_path: (editForm.ssh_key_path as string) || null,
       }},
