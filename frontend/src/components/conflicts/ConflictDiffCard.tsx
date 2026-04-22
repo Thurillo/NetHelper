@@ -56,10 +56,10 @@ const ConflictDiffCard: React.FC<ConflictDiffCardProps> = ({
         </div>
       </div>
 
-      {/* Description */}
-      {conflict.description && (
+      {/* Description / discovered value summary */}
+      {conflict.notes && (
         <div className="px-4 py-2 text-sm text-gray-600 bg-gray-50 border-b border-gray-100">
-          {conflict.description}
+          {conflict.notes}
         </div>
       )}
 
@@ -69,13 +69,17 @@ const ConflictDiffCard: React.FC<ConflictDiffCardProps> = ({
           <div className="bg-white p-3">
             <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Valore attuale</p>
             <p className="text-sm text-gray-900 font-mono break-all">
-              {conflict.current_value ?? <span className="italic text-gray-400">—</span>}
+              {(conflict.current_value != null
+                ? JSON.stringify(conflict.current_value)
+                : null) ?? <span className="italic text-gray-400">—</span>}
             </p>
           </div>
           <div className="bg-green-50 p-3">
             <p className="text-xs font-semibold text-green-600 uppercase mb-1">Valore rilevato</p>
             <p className="text-sm text-green-900 font-mono break-all">
-              {conflict.detected_value ?? <span className="italic text-gray-400">—</span>}
+              {(conflict.discovered_value != null
+                ? JSON.stringify(conflict.discovered_value)
+                : null) ?? <span className="italic text-gray-400">—</span>}
             </p>
           </div>
         </div>

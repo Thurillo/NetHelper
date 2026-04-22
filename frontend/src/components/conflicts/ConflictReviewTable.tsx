@@ -72,14 +72,16 @@ const ConflictReviewTable: React.FC<ConflictReviewTableProps> = ({ defaultStatus
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="">Tutti i tipi</option>
-          <option value="ip_change">Cambio IP</option>
-          <option value="mac_change">Cambio MAC</option>
-          <option value="interface_added">Interfaccia aggiunta</option>
-          <option value="interface_removed">Interfaccia rimossa</option>
-          <option value="vlan_change">Cambio VLAN</option>
-          <option value="hostname_change">Cambio hostname</option>
-          <option value="speed_change">Cambio velocità</option>
+          <option value="new_device_discovered">Nuovo device</option>
           <option value="suspected_unmanaged_switch">Switch non gestito</option>
+          <option value="new_interface">Nuova interfaccia</option>
+          <option value="missing_interface">Interfaccia mancante</option>
+          <option value="changed_ip">Cambio IP</option>
+          <option value="changed_mac">Cambio MAC</option>
+          <option value="changed_hostname">Cambio hostname</option>
+          <option value="new_mac">Nuovo MAC</option>
+          <option value="duplicate_device">Dispositivo duplicato</option>
+          <option value="other">Altro</option>
         </select>
 
         {selected.size > 0 && (

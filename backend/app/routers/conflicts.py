@@ -35,7 +35,7 @@ async def get_pending_count(
 async def list_conflicts(
     _: Annotated[object, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    status_filter: Optional[str] = None,
+    status: Optional[str] = None,
     device_id: Optional[int] = None,
     conflict_type: Optional[str] = None,
     page: int = 1,
@@ -45,7 +45,7 @@ async def list_conflicts(
         db,
         skip=(page-1)*size,
         limit=size,
-        status=status_filter,
+        status=status,
         device_id=device_id,
         conflict_type=conflict_type,
     )

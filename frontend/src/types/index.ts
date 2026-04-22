@@ -496,20 +496,13 @@ export interface IpRangeScanRequest {
 // ============================================================
 
 export type ConflictType =
-  | 'ip_change'
-  | 'mac_change'
-  | 'interface_added'
-  | 'interface_removed'
-  | 'vlan_change'
-  | 'hostname_change'
-  | 'speed_change'
-  | 'suspected_unmanaged_switch'
-  | 'new_device_discovered'
   | 'new_interface'
   | 'changed_ip'
   | 'missing_interface'
   | 'new_mac'
   | 'changed_mac'
+  | 'suspected_unmanaged_switch'
+  | 'new_device_discovered'
   | 'changed_hostname'
   | 'duplicate_device'
   | 'port_cable_conflict'
@@ -519,19 +512,19 @@ export type ConflictStatus = 'pending' | 'accepted' | 'rejected' | 'ignored'
 
 export interface ScanConflict {
   id: number
-  scan_job_id: number
+  scan_job_id: number | null
   scan_job?: ScanJob
   device_id: number | null
   device?: Device
   conflict_type: ConflictType
   status: ConflictStatus
+  entity_table: string | null
+  entity_id: number | null
   field_name: string | null
-  current_value: string | null
-  detected_value: string | null
-  description: string | null
+  current_value: unknown | null
+  discovered_value: unknown | null
   notes: string | null
-  resolved_by_id: number | null
-  resolved_by?: User
+  resolved_by_user_id: number | null
   resolved_at: string | null
   created_at: string
 }

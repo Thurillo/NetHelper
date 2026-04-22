@@ -97,18 +97,21 @@ export const ConflictStatusBadge: React.FC<{ status: ConflictStatus }> = ({ stat
 
 // Conflict type badge
 export const ConflictTypeBadge: React.FC<{ type: ConflictType }> = ({ type }) => {
-  const config: Record<ConflictType, { label: string; variant: BadgeVariant }> = {
-    ip_change: { label: 'Cambio IP', variant: 'blue' },
-    mac_change: { label: 'Cambio MAC', variant: 'indigo' },
-    interface_added: { label: 'Interfaccia aggiunta', variant: 'green' },
-    interface_removed: { label: 'Interfaccia rimossa', variant: 'red' },
-    vlan_change: { label: 'Cambio VLAN', variant: 'purple' },
-    hostname_change: { label: 'Cambio hostname', variant: 'teal' },
-    speed_change: { label: 'Cambio velocità', variant: 'orange' },
+  const config: Partial<Record<ConflictType, { label: string; variant: BadgeVariant }>> = {
+    new_interface: { label: 'Nuova interfaccia', variant: 'green' },
+    changed_ip: { label: 'Cambio IP', variant: 'blue' },
+    missing_interface: { label: 'Interfaccia mancante', variant: 'red' },
+    new_mac: { label: 'Nuovo MAC', variant: 'indigo' },
+    changed_mac: { label: 'Cambio MAC', variant: 'indigo' },
     suspected_unmanaged_switch: { label: 'Switch non gestito', variant: 'orange' },
+    new_device_discovered: { label: 'Nuovo device', variant: 'teal' },
+    changed_hostname: { label: 'Cambio hostname', variant: 'teal' },
+    duplicate_device: { label: 'Dispositivo duplicato', variant: 'red' },
+    port_cable_conflict: { label: 'Conflitto cavo/porta', variant: 'purple' },
+    other: { label: 'Altro', variant: 'gray' },
   }
-  const { label, variant } = config[type]
-  return <Badge variant={variant}>{label}</Badge>
+  const c = config[type] ?? { label: type, variant: 'gray' as BadgeVariant }
+  return <Badge variant={c.variant}>{c.label}</Badge>
 }
 
 // User role badge
